@@ -28,6 +28,23 @@ support.  Therefore, channels in the official distribution have all the
 restrictions that come with the stdlib without getting any benefits (unlike Go
 channels which are tightly integrated with the language.)
 
+### Usage
+
+To use `comm`, first add this to your `Cargo.toml`:
+
+```toml
+[dependencies.comm]
+git = "https://github.com/mahkoh/comm"
+```
+
+`comm` is currently not on [Crates.io](http://crates.io).
+
+Then add this to your crate root:
+
+```rust
+extern crate comm;
+```
+
 ### Bugs
 
 There are some tests but, given the nature of multi-threaded code, some bugs
