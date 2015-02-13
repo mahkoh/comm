@@ -101,7 +101,7 @@ pub mod mpmc;
 ///
 /// See the individual functions for a list of errors they can return and the specific
 /// meaning.
-#[derive(Debug, Copy, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Error {
     Disconnected,
     Full,
