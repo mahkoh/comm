@@ -6,6 +6,7 @@ use {Error};
 
 mod imp;
 #[cfg(test)] mod test;
+#[cfg(test)] mod bench;
 
 /// Creates a new bounded SPSC channel.
 ///

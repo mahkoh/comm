@@ -149,12 +149,7 @@ impl<T: Send> Packet<T> {
         // this has to wait for us to go to sleep before it can acquire the lock and
         // notify the condvar.
         let mut guard = self.sleeping_mutex.lock().unwrap();
-        if self.have_sleeping.swap(true, SeqCst) {
-            // The receiver cleared the channel and went to sleep before we acquired the
-            // lock. Sending will now succeed. The receiver will set have_sleeping to the
-            // correct value.
-            return self.send_async(val, true);
-        }
+        self.have_sleeping.store(true, SeqCst);
         loop {
             val = match self.send_async(val, true) {
                 Ok(()) => break,
@@ -198,9 +193,7 @@ impl<T: Send> Packet<T> {
 
         let rv;
         let mut guard = self.sleeping_mutex.lock().unwrap();
-        if self.have_sleeping.swap(true, SeqCst) {
-            return self.recv_async(true);
-        }
+        self.have_sleeping.store(true, SeqCst);
         loop {
             match self.recv_async(true) {
                 v @ Ok(..) => { rv = v; break; },

@@ -1,7 +1,7 @@
 #![crate_type = "lib"]
 #![crate_name = "comm"]
 #![feature(unsafe_destructor, box_syntax, core, alloc, collections, hash, std_misc)]
-#![cfg_attr(test, feature(io))]
+#![cfg_attr(test, feature(io, test))]
 #![allow(dead_code)]
 
 //! Communication primitives.
@@ -86,6 +86,7 @@
 
 extern crate core;
 extern crate alloc;
+#[cfg(test)] extern crate test;
 
 mod sortedvec;
 

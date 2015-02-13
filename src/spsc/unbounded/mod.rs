@@ -17,6 +17,7 @@ use {Error};
 
 mod imp;
 #[cfg(test)] mod test;
+#[cfg(test)] mod bench;
 
 /// Creates a new unbounded SPSC channel.
 pub fn new<T: Send>() -> (Producer<T>, Consumer<T>) {
