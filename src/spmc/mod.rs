@@ -5,3 +5,4 @@
 //! consumer, i.e., messages are not cloned.
 
 pub mod unbounded;
+pub mod bounded_fast;
