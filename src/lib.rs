@@ -1,6 +1,7 @@
 #![crate_type = "lib"]
 #![crate_name = "comm"]
-#![feature(unsafe_destructor, box_syntax, core, alloc, collections, hash, std_misc)]
+#![feature(unsafe_destructor, box_syntax, core, alloc, collections, hash,
+           std_misc, unsafe_no_drop_flag)]
 #![cfg_attr(test, feature(io, test))]
 #![allow(dead_code)]
 
@@ -24,7 +25,7 @@
 //! ```
 //! use std::thread::{Thread};
 //! use comm::{spsc};
-//! 
+//!
 //! // Create a bounded SPSC channel.
 //! let (send, recv) = spsc::bounded::new(10);
 //! Thread::spawn(move || {
@@ -38,7 +39,7 @@
 //! ```
 //! use std::thread::{Thread};
 //! use comm::{mpsc};
-//! 
+//!
 //! // Create an unbounded MPSC channel.
 //! let (send, recv) = mpsc::unbounded::new();
 //! for i in 0..10 {
@@ -61,7 +62,7 @@
 //! use std::time::duration::{Duration};
 //! use comm::{spsc};
 //! use comm::select::{Select, Selectable};
-//! 
+//!
 //! let mut channels = vec!();
 //! for i in 0..10 {
 //!     let (send, recv) = spsc::one_space::new();
