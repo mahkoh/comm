@@ -1,11 +1,11 @@
-use std::thread::{Thread};
+use std::{thread};
 use std::{sync};
 use test::{Bencher};
 
 #[bench]
 fn stdlib(b: &mut Bencher) {
     let (thread_send, thread_recv) = sync::mpsc::channel::<sync::mpsc::Sender<_>>();
-    Thread::spawn(move || {
+    thread::spawn(move || {
         while let Ok(c) = thread_recv.recv() {
             c.send(1).unwrap();
         }
@@ -20,7 +20,7 @@ fn stdlib(b: &mut Bencher) {
 #[bench]
 fn comm(b: &mut Bencher) {
     let (thread_send, thread_recv) = sync::mpsc::channel::<super::Producer<_>>();
-    Thread::spawn(move || {
+    thread::spawn(move || {
         while let Ok(c) = thread_recv.recv() {
             c.send(1).unwrap();
         }

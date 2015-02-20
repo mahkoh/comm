@@ -1,7 +1,7 @@
 use std::old_io::timer::{sleep};
 use std::sync::{Arc};
 use std::time::duration::{Duration};
-use std::thread::{Thread};
+use std::{thread};
 use std::sync::atomic::{AtomicUsize};
 use std::sync::atomic::Ordering::{SeqCst};
 
@@ -50,7 +50,7 @@ fn sleep_send_recv() {
     let chan = super::Channel::new(2);
     let chan2 = chan.clone();
 
-    Thread::spawn(move || {
+    thread::spawn(move || {
         ms_sleep(100);
         chan2.send_sync(1u8).unwrap();
     });
@@ -63,7 +63,7 @@ fn send_sleep_recv() {
     let chan = super::Channel::new(2);
     let chan2 = chan.clone();
 
-    Thread::spawn(move || {
+    thread::spawn(move || {
         chan2.send_sync(1u8).unwrap();
     });
 
@@ -76,7 +76,7 @@ fn send_sleep_recv_async() {
     let chan = super::Channel::new(2);
     let chan2 = chan.clone();
 
-    Thread::spawn(move || {
+    thread::spawn(move || {
         chan2.send_sync(1u8).unwrap();
     });
 
@@ -110,7 +110,7 @@ fn multiple_producers_multiple_consumers(buf_size: usize) {
     for _ in 0..NUM_THREADS_PER_END {
         let chan2 = chan.clone();
         let sum2 = sum.clone();
-        threads.push(Thread::scoped(move || {
+        threads.push(thread::scoped(move || {
             while let Ok(n) = chan2.recv_sync() {
                 sum2.fetch_add(n, SeqCst);
             }
@@ -118,7 +118,7 @@ fn multiple_producers_multiple_consumers(buf_size: usize) {
     }
     for i in 0..NUM_THREADS_PER_END {
         let chan2 = chan.clone();
-        threads.push(Thread::scoped(move || {
+        threads.push(thread::scoped(move || {
             for j in (i*NUM_PER_THREAD..(i+1)*NUM_PER_THREAD) {
                 chan2.send_sync(j).unwrap();
             }
@@ -169,7 +169,7 @@ fn select_wait() {
     let chan = super::Channel::new(2);
     let chan2 = chan.clone();
 
-    Thread::spawn(move || {
+    thread::spawn(move || {
         ms_sleep(100);
         chan2.send_sync(1u8).unwrap();
     });

@@ -1,6 +1,6 @@
 use std::old_io::timer::{sleep};
 use std::time::duration::{Duration};
-use std::thread::{Thread};
+use std::{thread};
 
 use select::{Select, Selectable};
 use {Error};
@@ -40,7 +40,7 @@ fn recv() {
 fn sleep_send_recv() {
     let (send, recv) = super::new();
 
-    Thread::spawn(move || {
+    thread::spawn(move || {
         ms_sleep(100);
         send.send(1u8).unwrap();
     });
@@ -52,7 +52,7 @@ fn sleep_send_recv() {
 fn send_sleep_recv() {
     let (send, recv) = super::new();
 
-    Thread::spawn(move || {
+    thread::spawn(move || {
         send.send(1u8).unwrap();
     });
 
@@ -64,7 +64,7 @@ fn send_sleep_recv() {
 fn send_sleep_recv_async() {
     let (send, recv) = super::new();
 
-    Thread::spawn(move || {
+    thread::spawn(move || {
         send.send(1u8).unwrap();
     });
 
@@ -105,7 +105,7 @@ fn select_no_wait() {
 fn select_wait() {
     let (send, recv) = super::new();
 
-    Thread::spawn(move || {
+    thread::spawn(move || {
         ms_sleep(100);
         send.send(1u8).unwrap();
     });

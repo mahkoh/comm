@@ -12,7 +12,7 @@ use select::{_Selectable, WaitQueue, Payload};
 use alloc::{oom};
 use {Error};
 
-pub struct Packet<T: Send> {
+pub struct Packet<T: Send+'static> {
     // Id of the channel. Address of the arc::Inner that contains us.
     id: Cell<usize>,
 
@@ -41,7 +41,7 @@ pub struct Packet<T: Send> {
     wait_queue: Mutex<WaitQueue>,
 }
 
-impl<T: Send> Packet<T> {
+impl<T: Send+'static> Packet<T> {
     pub fn new(buf_size: usize) -> Packet<T> {
         let cap = buf_size.checked_next_power_of_two().expect("capacity overflow");
         let size = cap.checked_mul(mem::size_of::<T>()).unwrap_or(!0);
@@ -207,11 +207,11 @@ impl<T: Send> Packet<T> {
     }
 }
 
-unsafe impl<T: Send> Send for Packet<T> { }
-unsafe impl<T: Send> Sync for Packet<T> { }
+unsafe impl<T: Send+'static> Send for Packet<T> { }
+unsafe impl<T: Send+'static> Sync for Packet<T> { }
 
 #[unsafe_destructor]
-impl<T: Send> Drop for Packet<T> {
+impl<T: Send+'static> Drop for Packet<T> {
     fn drop(&mut self) {
         let (write_pos, read_pos) = self.get_pos();
         
@@ -229,7 +229,7 @@ impl<T: Send> Drop for Packet<T> {
     }
 }
 
-unsafe impl<T: Send> _Selectable for Packet<T> {
+unsafe impl<T: Send+'static> _Selectable for Packet<T> {
     fn ready(&self) -> bool {
         if self.disconnected.load(SeqCst) {
             return true;

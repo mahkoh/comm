@@ -1,7 +1,7 @@
 use std::old_io::timer::{sleep};
 use std::sync::{Arc};
 use std::time::duration::{Duration};
-use std::thread::{Thread};
+use std::{thread};
 use std::sync::atomic::{AtomicUsize};
 use std::sync::atomic::Ordering::{SeqCst};
 
@@ -43,7 +43,7 @@ fn recv() {
 fn sleep_send_recv() {
     let (send, recv) = super::new();
 
-    Thread::spawn(move || {
+    thread::spawn(move || {
         ms_sleep(100);
         send.send(1u8).unwrap();
     });
@@ -55,7 +55,7 @@ fn sleep_send_recv() {
 fn send_sleep_recv() {
     let (send, recv) = super::new();
 
-    Thread::spawn(move || {
+    thread::spawn(move || {
         send.send(1u8).unwrap();
     });
 
@@ -67,7 +67,7 @@ fn send_sleep_recv() {
 fn send_sleep_recv_async() {
     let (send, recv) = super::new();
 
-    Thread::spawn(move || {
+    thread::spawn(move || {
         send.send(1u8).unwrap();
     });
 
@@ -100,7 +100,7 @@ fn multiple_consumers() {
     for _ in 0..NUM {
         let recv2 = recv.clone();
         let sum2 = sum.clone();
-        threads.push(Thread::scoped(move || {
+        threads.push(thread::scoped(move || {
             while let Ok(n) = recv2.recv_sync() {
                 sum2.fetch_add(n, SeqCst);
             }
@@ -133,7 +133,7 @@ fn select_no_wait() {
 fn select_wait() {
     let (send, recv) = super::new();
 
-    Thread::spawn(move || {
+    thread::spawn(move || {
         ms_sleep(100);
         send.send(1u8).unwrap();
     });

@@ -31,7 +31,7 @@ fn compose_pointer(lower: HalfPointer, higher: HalfPointer) -> usize {
     (lower as usize) | ((higher as usize) << HALF_POINTER_BITS)
 }
 
-pub struct Packet<T: Send> {
+pub struct Packet<T: Send+'static> {
     // The id of this channel. The address of the `arc::Inner` that contains this channel.
     id: Cell<usize>,
 
@@ -76,7 +76,7 @@ pub struct Packet<T: Send> {
     wait_queue: Mutex<WaitQueue>,
 }
 
-impl<T: Send> Packet<T> {
+impl<T: Send+'static> Packet<T> {
     pub fn new(buf_size: usize) -> Packet<T> {
         if buf_size > 1 << (HALF_POINTER_BITS - 1) {
             panic!("capacity overflow");
@@ -356,11 +356,11 @@ impl<T: Send> Packet<T> {
     }
 }
 
-unsafe impl<T: Send> Send for Packet<T> { }
-unsafe impl<T: Send> Sync for Packet<T> { }
+unsafe impl<T: Send+'static> Send for Packet<T> { }
+unsafe impl<T: Send+'static> Sync for Packet<T> { }
 
 #[unsafe_destructor]
-impl<T: Send> Drop for Packet<T> {
+impl<T: Send+'static> Drop for Packet<T> {
     fn drop(&mut self) {
         let wenr = self.write_end_next_read.load(SeqCst);
         let (write_end, read_start) = decompose_pointer(wenr);
@@ -379,7 +379,7 @@ impl<T: Send> Drop for Packet<T> {
     }
 }
 
-unsafe impl<T: Send> _Selectable for Packet<T> {
+unsafe impl<T: Send+'static> _Selectable for Packet<T> {
     fn ready(&self) -> bool {
         let wenr = self.write_end_next_read.load(SeqCst);
         let (write_end, next_read) = decompose_pointer(wenr);

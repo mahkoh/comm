@@ -1,6 +1,6 @@
 use std::old_io::timer::{sleep};
 use std::time::duration::{Duration};
-use std::thread::{Thread};
+use std::{thread};
 use std::sync::{Arc};
 use std::sync::atomic::{AtomicUsize};
 use std::sync::atomic::Ordering::{SeqCst};
@@ -24,13 +24,13 @@ fn no_wait_one() {
 #[test]
 fn wait_one() {
     let (send, recv) = new();
-    Thread::spawn(move || {
+    thread::spawn(move || {
         ms_sleep(100);
         send.send(1u8).unwrap();
     });
     let select = Select::new();
     select.add(&recv);
-    assert!(select.wait(&mut [0]) == &mut [recv.id()][]);
+    assert!(select.wait(&mut [0]) == &mut [recv.id()][..]);
 }
 
 #[test]
@@ -39,7 +39,7 @@ fn ready_list_one() {
     let select = Select::new();
     select.add(&recv);
     send.send(1u8).unwrap();
-    assert!(select.check_ready_list(&mut [0]) == &mut [recv.id()][]);
+    assert!(select.check_ready_list(&mut [0]) == &mut [recv.id()][..]);
 }
 
 #[test]
@@ -58,11 +58,11 @@ fn no_wait_two() {
 fn wait_two() {
     let (send, recv) = new();
     let (send2, recv2) = new();
-    Thread::spawn(move || {
+    thread::spawn(move || {
         ms_sleep(100);
         send.send(1u8).unwrap();
     });
-    Thread::spawn(move || {
+    thread::spawn(move || {
         ms_sleep(200);
         send2.send(1u8).unwrap();
     });
@@ -94,16 +94,16 @@ fn select_wrong_thread() {
     let id2 = recv2.id();
     let select1 = Arc::new(Select::new());
     let select2 = select1.clone();
-    let thread = Thread::scoped(move || {
+    let thread = thread::scoped(move || {
         select2.add(&recv2);
         send2.send(1u8).unwrap();
         ms_sleep(100);
         // clear the second channel so that wait below will remove it from the ready list
         recv2.recv_sync().unwrap();
-        assert_eq!(select2.wait(&mut [0, 0]), &mut [id1][]);
+        assert_eq!(select2.wait(&mut [0, 0]), &mut [id1][..]);
     });
     select1.add(&recv1);
-    assert_eq!(select1.wait(&mut [0, 0]), &mut [id2][]);
+    assert_eq!(select1.wait(&mut [0, 0]), &mut [id2][..]);
     send1.send(2u8).unwrap();
     // make sure that we wait for the other thread before dropping anything else
     drop(thread);
@@ -120,11 +120,11 @@ fn select_chance() {
     let select1 = Arc::new(Select::new());
     let select2 = select1.clone();
     select1.add(&recv);
-    Thread::spawn(move || {
+    thread::spawn(move || {
         select1.wait(&mut []);
         counter2.fetch_add(1, SeqCst);
     });
-    Thread::spawn(move || {
+    thread::spawn(move || {
         select2.wait(&mut []);
         counter3.fetch_add(1, SeqCst);
     });

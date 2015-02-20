@@ -1,8 +1,8 @@
 #![crate_type = "lib"]
 #![crate_name = "comm"]
-#![feature(unsafe_destructor, box_syntax, core, alloc, collections, hash,
-           std_misc, unsafe_no_drop_flag)]
-#![cfg_attr(test, feature(io, test))]
+#![feature(unsafe_destructor, box_syntax, core, alloc, collections, unsafe_no_drop_flag,
+           std_misc)]
+#![cfg_attr(test, feature(old_io, test))]
 #![allow(dead_code)]
 
 //! Communication primitives.
@@ -23,12 +23,12 @@
 //! Simple usage:
 //!
 //! ```
-//! use std::thread::{Thread};
+//! use std::{thread};
 //! use comm::{spsc};
 //!
 //! // Create a bounded SPSC channel.
 //! let (send, recv) = spsc::bounded::new(10);
-//! Thread::spawn(move || {
+//! thread::spawn(move || {
 //!     send.send_sync(10).unwrap();
 //! });
 //! assert_eq!(recv.recv_sync().unwrap(), 10);
@@ -37,14 +37,14 @@
 //! Shared usage:
 //!
 //! ```
-//! use std::thread::{Thread};
+//! use std::{thread};
 //! use comm::{mpsc};
 //!
 //! // Create an unbounded MPSC channel.
 //! let (send, recv) = mpsc::unbounded::new();
 //! for i in 0..10 {
 //!     let send = send.clone();
-//!     Thread::spawn(move || {
+//!     thread::spawn(move || {
 //!         send.send(i).unwrap();
 //!     });
 //! }
@@ -57,7 +57,7 @@
 //! Selecting:
 //!
 //! ```
-//! use std::thread::{Thread};
+//! use std::{thread};
 //! use std::old_io::{timer};
 //! use std::time::duration::{Duration};
 //! use comm::{spsc};
@@ -67,7 +67,7 @@
 //! for i in 0..10 {
 //!     let (send, recv) = spsc::one_space::new();
 //!     channels.push(recv);
-//!     Thread::spawn(move || {
+//!     thread::spawn(move || {
 //!         timer::sleep(Duration::milliseconds(100));
 //!         send.send(i).ok();
 //!     });

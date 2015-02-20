@@ -1,5 +1,5 @@
 use std::collections::{HashMap};
-use std::hash::{Hash, Hasher, Writer};
+use std::hash::{Hash, Hasher};
 use std::sync::{Mutex, Condvar};
 use std::cmp::{self, Ordering};
 use std::{mem};
@@ -201,8 +201,8 @@ impl Ord for Entry {
     }
 }
 
-impl<H: Hasher+Writer> Hash<H> for Entry {
-    fn hash(&self, state: &mut H) {
+impl Hash for Entry {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         self.data.unique_id().hash(state);
     }
 }

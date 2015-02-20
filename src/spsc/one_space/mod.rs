@@ -18,18 +18,18 @@ mod imp;
 #[cfg(test)] mod bench;
 
 /// Creates a new SPSC one space channel.
-pub fn new<T: Send>() -> (Producer<T>, Consumer<T>) {
+pub fn new<T: Send+'static>() -> (Producer<T>, Consumer<T>) {
     let packet = Arc::new(Packet::new());
     packet.set_id(packet.unique_id());
     (Producer { data: packet.clone() }, Consumer { data: packet })
 }
 
 /// The producing half of an SPSC one space channel.
-pub struct Producer<T: Send> {
+pub struct Producer<T: Send+'static> {
     data: Arc<imp::Packet<T>>,
 }
 
-impl<T: Send> Producer<T> {
+impl<T: Send+'static> Producer<T> {
     /// Sends a message over this channel. Doesn't block if the channel is full.
     ///
     /// ### Error
@@ -41,10 +41,10 @@ impl<T: Send> Producer<T> {
     }
 }
 
-unsafe impl<T: Send> Send for Producer<T> { }
+unsafe impl<T: Send+'static> Send for Producer<T> { }
 
 #[unsafe_destructor]
-impl<T: Send> Drop for Producer<T> {
+impl<T: Send+'static> Drop for Producer<T> {
     fn drop(&mut self) {
         self.data.sender_disconnect();
     }
@@ -55,7 +55,7 @@ pub struct Consumer<T> {
     data: Arc<imp::Packet<T>>,
 }
 
-impl<T: Send> Consumer<T> {
+impl<T: Send+'static> Consumer<T> {
     /// Receives a message from this channel. Doesn't block if the channel is empty.
     ///
     /// ### Error
@@ -81,21 +81,21 @@ impl<T: Send> Consumer<T> {
     }
 }
 
-unsafe impl<T: Send> Send for Consumer<T> { }
+unsafe impl<T: Send+'static> Send for Consumer<T> { }
 
 #[unsafe_destructor]
-impl<T: Send> Drop for Consumer<T> {
+impl<T: Send+'static> Drop for Consumer<T> {
     fn drop(&mut self) {
         self.data.recv_disconnect();
     }
 }
 
-impl<T: Send> Selectable for Consumer<T> {
+impl<T: Send+'static> Selectable for Consumer<T> {
     fn id(&self) -> usize {
         self.data.unique_id()
     }
 
     fn as_selectable(&self) -> ArcTrait<_Selectable> {
-        unsafe { self.data.as_trait(&*self.data as &_Selectable) }
+        unsafe { self.data.as_trait(self.data.static_ref() as &_Selectable) }
     }
 }

@@ -26,7 +26,7 @@ struct Node<T> {
 }
 
 #[repr(C)]
-pub struct Packet<T: Send> {
+pub struct Packet<T: Send+'static> {
     // The id of this channel. The address of the `arc::Inner` that contains this channel.
     id: Cell<usize>,
 
@@ -60,7 +60,7 @@ pub struct Packet<T: Send> {
     wait_queue: Mutex<WaitQueue>,
 }
 
-impl<T: Send> Packet<T> {
+impl<T: Send+'static> Packet<T> {
     pub fn new(mut buf_size: usize) -> Packet<T> {
         buf_size = cmp::max(buf_size, 2);
         let cap = buf_size.checked_next_power_of_two().unwrap_or(!0);
@@ -282,11 +282,11 @@ impl<T: Send> Packet<T> {
     }
 }
 
-unsafe impl<T: Send> Send for Packet<T> { }
-unsafe impl<T: Send> Sync for Packet<T> { }
+unsafe impl<T: Send+'static> Send for Packet<T> { }
+unsafe impl<T: Send+'static> Sync for Packet<T> { }
 
 #[unsafe_destructor]
-impl<T: Send> Drop for Packet<T> {
+impl<T: Send+'static> Drop for Packet<T> {
     fn drop(&mut self) {
         while self.recv_async(false).is_ok() { }
         
@@ -298,7 +298,7 @@ impl<T: Send> Drop for Packet<T> {
     }
 }
 
-unsafe impl<T: Send> _Selectable for Packet<T> {
+unsafe impl<T: Send+'static> _Selectable for Packet<T> {
     fn ready(&self) -> bool {
         let next_read = self.next_read.load(SeqCst);
         let node = self.get_node(next_read);

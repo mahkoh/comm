@@ -1,4 +1,4 @@
-use std::thread::{Thread};
+use std::{thread};
 
 use test::{Bencher, black_box};
 use std::{sync};
@@ -6,7 +6,7 @@ use std::{sync};
 #[bench]
 fn sync_small_stdlib(b: &mut Bencher) {
     let (thread_send, thread_recv) = sync::mpsc::channel::<sync::mpsc::SyncSender<_>>();
-    Thread::spawn(move || {
+    thread::spawn(move || {
         while let Ok(bench_send) = thread_recv.recv() {
             for i in 0..128 {
                 bench_send.send(i).unwrap();
@@ -25,7 +25,7 @@ fn sync_small_stdlib(b: &mut Bencher) {
 #[bench]
 fn sync_small_comm(b: &mut Bencher) {
     let (thread_send, thread_recv) = sync::mpsc::channel::<super::Producer<_>>();
-    Thread::spawn(move || {
+    thread::spawn(move || {
         while let Ok(bench_send) = thread_recv.recv() {
             for i in 0..128 {
                 bench_send.send_sync(i).unwrap();
@@ -44,7 +44,7 @@ fn sync_small_comm(b: &mut Bencher) {
 #[bench]
 fn sync_mid_stdlib(b: &mut Bencher) {
     let (thread_send, thread_recv) = sync::mpsc::channel::<sync::mpsc::SyncSender<_>>();
-    Thread::spawn(move || {
+    thread::spawn(move || {
         while let Ok(bench_send) = thread_recv.recv() {
             for i in 0..128 {
                 bench_send.send(i).unwrap();
@@ -63,7 +63,7 @@ fn sync_mid_stdlib(b: &mut Bencher) {
 #[bench]
 fn sync_mid_comm(b: &mut Bencher) {
     let (thread_send, thread_recv) = sync::mpsc::channel::<super::Producer<_>>();
-    Thread::spawn(move || {
+    thread::spawn(move || {
         while let Ok(bench_send) = thread_recv.recv() {
             for i in 0..128 {
                 bench_send.send_sync(i).unwrap();
@@ -82,7 +82,7 @@ fn sync_mid_comm(b: &mut Bencher) {
 #[bench]
 fn sync_large_stdlib(b: &mut Bencher) {
     let (thread_send, thread_recv) = sync::mpsc::channel::<sync::mpsc::SyncSender<_>>();
-    Thread::spawn(move || {
+    thread::spawn(move || {
         while let Ok(bench_send) = thread_recv.recv() {
             for i in 0..128 {
                 bench_send.send(i).unwrap();
@@ -101,7 +101,7 @@ fn sync_large_stdlib(b: &mut Bencher) {
 #[bench]
 fn sync_large_comm(b: &mut Bencher) {
     let (thread_send, thread_recv) = sync::mpsc::channel::<super::Producer<_>>();
-    Thread::spawn(move || {
+    thread::spawn(move || {
         while let Ok(bench_send) = thread_recv.recv() {
             for i in 0..128 {
                 bench_send.send_sync(i).unwrap();
@@ -121,7 +121,7 @@ fn sync_large_comm(b: &mut Bencher) {
 fn async_stdlib(b: &mut Bencher) {
     let (thread_send, thread_recv) =
         sync::mpsc::channel::<(sync::mpsc::SyncSender<_>, sync::mpsc::Sender<_>)>();
-    Thread::spawn(move || {
+    thread::spawn(move || {
         while let Ok((bench_send, notify_send)) = thread_recv.recv() {
             for i in 0..128 {
                 bench_send.send(i).unwrap();
@@ -144,7 +144,7 @@ fn async_stdlib(b: &mut Bencher) {
 fn async_comm(b: &mut Bencher) {
     let (thread_send, thread_recv) =
         sync::mpsc::channel::<(super::Producer<_>, sync::mpsc::Sender<_>)>();
-    Thread::spawn(move || {
+    thread::spawn(move || {
         while let Ok((bench_send, notify_send)) = thread_recv.recv() {
             for i in 0..128 {
                 bench_send.send_sync(i).unwrap();

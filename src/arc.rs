@@ -26,7 +26,7 @@
 //!
 //! let arc_trait: ArcTrait<Y> = unsafe {
 //!     let arc = Arc::new(X { x: 3 });
-//!     arc.as_trait(&*arc as &Y)
+//!     arc.as_trait(arc.static_ref() as &Y)
 //! };
 //!
 //! assert_eq!(arc_trait.f(), 3);
@@ -40,6 +40,7 @@ use core::nonzero::{NonZero};
 use std::ops::{Deref};
 use std::rt::heap::{deallocate};
 use std::raw::{TraitObject};
+use std::marker::{PhantomData};
 
 #[unsafe_no_drop_flag]
 pub struct Arc<T> {
@@ -70,6 +71,8 @@ pub struct ArcTrait<T: ?Sized> {
     _trait: TraitObject,
 
     _ptr: NonZero<*mut ArcInner<u8>>,
+
+    _marker: PhantomData<T>,
 }
 
 unsafe impl<T: Sync + Send> Send for ArcTrait<T> {}
@@ -88,6 +91,8 @@ pub struct WeakTrait<T: ?Sized> {
     _trait: TraitObject,
 
     _ptr: NonZero<*mut ArcInner<u8>>,
+
+    _marker: PhantomData<T>,
 }
 
 unsafe impl<T: Sync + Send> Send for WeakTrait<T> {}
@@ -136,7 +141,7 @@ impl<T> Arc<T> {
     }
 
     /// Creates an ArcTrait from an Arc. `t` must be a trait object created by calling
-    /// `&*self as &Trait`. Otherwise the behavior is undefined.
+    /// `self.static_ref() as &Trait`. Otherwise the behavior is undefined.
     pub unsafe fn as_trait<Trait: ?Sized>(&self, t: &Trait) -> ArcTrait<Trait> {
         assert!(mem::size_of::<&Trait>() == mem::size_of::<TraitObject>());
 
@@ -152,7 +157,13 @@ impl<T> Arc<T> {
             _trait: _trait,
 
             _ptr: mem::transmute(self._ptr),
+
+            _marker: PhantomData,
         }
+    }
+
+    pub unsafe fn static_ref(&self) -> &'static T {
+        mem::transmute(self.deref())
     }
 
     #[inline]
@@ -305,7 +316,9 @@ impl<T: ?Sized> ArcTrait<T> {
             _destructor: self._destructor,
             _trait: self._trait,
 
-            _ptr: self._ptr
+            _ptr: self._ptr,
+
+            _marker: PhantomData,
         }
     }
 
@@ -340,7 +353,9 @@ impl<T: ?Sized> Clone for ArcTrait<T> {
             _destructor: self._destructor,
             _trait: self._trait,
 
-            _ptr: self._ptr
+            _ptr: self._ptr,
+
+            _marker: PhantomData,
         }
     }
 }
@@ -399,7 +414,9 @@ impl<T: ?Sized> WeakTrait<T> {
                     _destructor: self._destructor,
                     _trait: self._trait,
 
-                    _ptr: self._ptr
+                    _ptr: self._ptr,
+
+                    _marker: PhantomData,
                 };
                 return Some(at);
             }
@@ -439,7 +456,9 @@ impl<T: Sync+Send+?Sized> Clone for WeakTrait<T> {
             _destructor: self._destructor,
             _trait: self._trait,
 
-            _ptr: self._ptr
+            _ptr: self._ptr,
+
+            _marker: PhantomData,
         }
     }
 }
@@ -483,7 +502,7 @@ mod test {
     fn test1() {
         let arc_trait: ArcTrait<Y> = unsafe {
             let arc = Arc::new(X { x: 3 });
-            arc.as_trait(&*arc as &Y)
+            arc.as_trait(arc.static_ref() as &Y)
         };
 
         assert_eq!(arc_trait.f(), 3);
@@ -493,7 +512,7 @@ mod test {
     fn test2() {
         let arc_trait: ArcTrait<Y> = unsafe {
             let arc = Arc::new(X { x: 3 });
-            arc.as_trait(&*arc as &Y)
+            arc.as_trait(arc.static_ref() as &Y)
         };
         let weak = arc_trait.downgrade();
         let strong = weak.upgrade().unwrap();
@@ -505,7 +524,7 @@ mod test {
     fn test3() {
         let arc_trait: ArcTrait<Y> = unsafe {
             let arc = Arc::new(X { x: 3 });
-            arc.as_trait(&*arc as &Y)
+            arc.as_trait(arc.static_ref() as &Y)
         };
         let weak = arc_trait.downgrade();
         drop(arc_trait);

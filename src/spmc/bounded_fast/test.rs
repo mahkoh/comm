@@ -1,7 +1,7 @@
 use std::old_io::timer::{sleep};
 use std::sync::{Arc};
 use std::time::duration::{Duration};
-use std::thread::{Thread};
+use std::{thread};
 use std::sync::atomic::{AtomicUsize};
 use std::sync::atomic::Ordering::{SeqCst};
 
@@ -14,36 +14,36 @@ fn ms_sleep(ms: i64) {
 
 #[test]
 fn send_recv() {
-    let (send, recv) = super::new(2);
+    let (send, recv) = unsafe { super::new(2) };
     send.send_async(1u8).unwrap();
     assert_eq!(recv.recv_async().unwrap(), 1u8);
 }
 
 #[test]
 fn drop_send_recv() {
-    let (send, recv) = super::new::<u8>(2);
+    let (send, recv) = unsafe { super::new::<u8>(2) };
     drop(send);
     assert_eq!(recv.recv_async().unwrap_err(), Error::Disconnected);
 }
 
 #[test]
 fn drop_recv_send() {
-    let (send, recv) = super::new(2);
+    let (send, recv) = unsafe { super::new(2) };
     drop(recv);
     assert_eq!(send.send_async(1u8).unwrap_err(), (1, Error::Disconnected));
 }
 
 #[test]
 fn recv() {
-    let (_send, recv) = super::new::<u8>(2);
+    let (_send, recv) = unsafe { super::new::<u8>(2) };
     assert_eq!(recv.recv_async().unwrap_err(), Error::Empty);
 }
 
 #[test]
 fn sleep_send_recv() {
-    let (send, recv) = super::new(2);
+    let (send, recv) = unsafe { super::new(2) };
 
-    Thread::spawn(move || {
+    thread::spawn(move || {
         ms_sleep(100);
         send.send_async(1u8).unwrap();
     });
@@ -53,9 +53,9 @@ fn sleep_send_recv() {
 
 #[test]
 fn send_sleep_recv() {
-    let (send, recv) = super::new(2);
+    let (send, recv) = unsafe { super::new(2) };
 
-    Thread::spawn(move || {
+    thread::spawn(move || {
         send.send_async(1u8).unwrap();
     });
 
@@ -65,9 +65,9 @@ fn send_sleep_recv() {
 
 #[test]
 fn send_sleep_recv_async() {
-    let (send, recv) = super::new(2);
+    let (send, recv) = unsafe { super::new(2) };
 
-    Thread::spawn(move || {
+    thread::spawn(move || {
         send.send_async(1u8).unwrap();
     });
 
@@ -77,7 +77,7 @@ fn send_sleep_recv_async() {
 
 #[test]
 fn send_5_recv_5() {
-    let (send, recv) = super::new(4);
+    let (send, recv) = unsafe { super::new(4) };
     send.send_async(1u8).unwrap();
     send.send_async(2u8).unwrap();
     send.send_async(3u8).unwrap();
@@ -94,13 +94,13 @@ fn multiple_consumers(buf_size: usize) {
     const NUM: usize = 100;
     const RESULT: usize = (NUM*NUM-1)*(NUM*NUM)/2;
 
-    let (send, recv) = super::new(buf_size);
+    let (send, recv) = unsafe { super::new(buf_size) };
     let sum = Arc::new(AtomicUsize::new(0));
     let mut threads = vec!();
     for _ in 0..NUM {
         let recv2 = recv.clone();
         let sum2 = sum.clone();
-        threads.push(Thread::scoped(move || {
+        threads.push(thread::scoped(move || {
             while let Ok(n) = recv2.recv_sync() {
                 sum2.fetch_add(n, SeqCst);
             }
@@ -136,7 +136,7 @@ fn multiple_consumers_1000() {
 
 #[test]
 fn select_no_wait() {
-    let (send, recv) = super::new(2);
+    let (send, recv) = unsafe { super::new(2) };
 
     send.send_async(1u8).unwrap();
 
@@ -151,9 +151,9 @@ fn select_no_wait() {
 
 #[test]
 fn select_wait() {
-    let (send, recv) = super::new(2);
+    let (send, recv) = unsafe { super::new(2) };
 
-    Thread::spawn(move || {
+    thread::spawn(move || {
         ms_sleep(100);
         send.send_async(1u8).unwrap();
     });

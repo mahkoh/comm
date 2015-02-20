@@ -15,11 +15,11 @@ mod imp;
 #[cfg(test)] mod test;
 
 /// An endpoint of a bounded MPMC channel.
-pub struct Channel<T: Send> {
+pub struct Channel<T: Send+'static> {
     data: Arc<imp::Packet<T>>,
 }
 
-impl<T: Send> Channel<T> {
+impl<T: Send+'static> Channel<T> {
     /// Creates a new bounded MPMC channel with capacity at least `cap`.
     ///
     /// ### Panic
@@ -73,10 +73,10 @@ impl<T: Send> Channel<T> {
     }
 }
 
-unsafe impl<T: Send> Sync for Channel<T> { }
-unsafe impl<T: Send> Send for Channel<T> { }
+unsafe impl<T: Send+'static> Sync for Channel<T> { }
+unsafe impl<T: Send+'static> Send for Channel<T> { }
 
-impl<T: Send> Clone for Channel<T> {
+impl<T: Send+'static> Clone for Channel<T> {
     fn clone(&self) -> Channel<T> {
         self.data.add_peer();
         Channel { data: self.data.clone(), }
@@ -84,18 +84,18 @@ impl<T: Send> Clone for Channel<T> {
 }
 
 #[unsafe_destructor]
-impl<T: Send> Drop for Channel<T> {
+impl<T: Send+'static> Drop for Channel<T> {
     fn drop(&mut self) {
         self.data.remove_peer();
     }
 }
 
-impl<T: Send> Selectable for Channel<T> {
+impl<T: Send+'static> Selectable for Channel<T> {
     fn id(&self) -> usize {
         self.data.unique_id()
     }
 
     fn as_selectable(&self) -> ArcTrait<_Selectable> {
-        unsafe { self.data.as_trait(&*self.data as &_Selectable) }
+        unsafe { self.data.as_trait(self.data.static_ref() as &_Selectable) }
     }
 }

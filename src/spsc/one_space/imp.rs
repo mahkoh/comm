@@ -1,5 +1,5 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::thread::{Thread};
+use std::thread::{self, Thread};
 use std::cell::{Cell, UnsafeCell};
 use std::sync::{StaticMutex, MUTEX_INIT};
 use std::{mem};
@@ -37,7 +37,7 @@ pub struct Packet<T> {
     wait_queue:       UnsafeCell<WaitQueue>,
 }
 
-impl<T: Send> Packet<T> {
+impl<T: Send+'static> Packet<T> {
     /// Create a new Packet
     pub fn new() -> Packet<T> {
         Packet {
@@ -147,7 +147,7 @@ impl<T: Send> Packet<T> {
         // No data is available and the sender hasn't disconnected yet. We sleep until the
         // sender wakes us up, either because data becomes available or it disconnected.
         if (flags & DATA_AVAILABLE == 0) && (flags & SENDER_DISCONNECTED == 0) {
-            unsafe { *self.receiver_thread.get() = Some(Thread::current()); }
+            unsafe { *self.receiver_thread.get() = Some(thread::current()); }
             self.flags.fetch_or(RECEIVER_SLEEPING, Ordering::SeqCst);
             flags |= RECEIVER_SLEEPING;
 
@@ -169,7 +169,7 @@ impl<T: Send> Packet<T> {
             //    calls to `recv_sync` won't influence each other, even if the semaphore
             //    is in the wrong state after the first call.
             while flags & RECEIVER_SLEEPING != 0 {
-                Thread::park();
+                thread::park();
                 flags = self.flags.load(Ordering::SeqCst);
             }
         }
@@ -223,11 +223,11 @@ impl<T: Send> Packet<T> {
     }
 }
 
-unsafe impl<T: Send> Sync for Packet<T> { }
+unsafe impl<T: Send+'static> Sync for Packet<T> { }
 
-unsafe impl<T: Send> Send for Packet<T> { }
+unsafe impl<T: Send+'static> Send for Packet<T> { }
 
-unsafe impl<T: Send> _Selectable for Packet<T> {
+unsafe impl<T: Send+'static> _Selectable for Packet<T> {
     fn ready(&self) -> bool {
         self.flags.load(Ordering::SeqCst) & (DATA_AVAILABLE | SENDER_DISCONNECTED) != 0
     }
@@ -246,7 +246,7 @@ unsafe impl<T: Send> _Selectable for Packet<T> {
 }
 
 #[unsafe_destructor]
-impl<T: Send> Drop for Packet<T> {
+impl<T: Send+'static> Drop for Packet<T> {
     fn drop(&mut self) {
         unsafe {
             let mutex: &'static StaticMutex = mem::transmute(&self.wait_queue_mutex);

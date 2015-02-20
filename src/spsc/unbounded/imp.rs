@@ -7,7 +7,7 @@ use std::cell::{Cell};
 use select::{_Selectable, WaitQueue, Payload};
 use {Error};
 
-pub struct Packet<T: Send> {
+pub struct Packet<T: Send+'static> {
     // The id of this channel. The address of the `arc::Inner` that contains this channel.
     id: Cell<usize>,
 
@@ -34,12 +34,12 @@ pub struct Packet<T: Send> {
     wait_queue: Mutex<WaitQueue>,
 }
 
-struct Node<T: Send> {
+struct Node<T: Send+'static> {
     next: AtomicPtr<Node<T>>,
     val: Option<T>,
 }
 
-impl<T: Send> Node<T> {
+impl<T: Send+'static> Node<T> {
     // Creates and forgets a new empty Node.
     fn new() -> *mut Node<T> {
         let mut node = Box::new(Node {
@@ -52,7 +52,7 @@ impl<T: Send> Node<T> {
     }
 }
 
-impl<T: Send> Packet<T> {
+impl<T: Send+'static> Packet<T> {
     pub fn new() -> Packet<T> {
         let ptr = Node::new();
         Packet {
@@ -164,18 +164,18 @@ impl<T: Send> Packet<T> {
     }
 }
 
-unsafe impl<T: Send> Send for Packet<T> { }
-unsafe impl<T: Send> Sync for Packet<T> { }
+unsafe impl<T: Send+'static> Send for Packet<T> { }
+unsafe impl<T: Send+'static> Sync for Packet<T> { }
 
 #[unsafe_destructor]
-impl<T: Send> Drop for Packet<T> {
+impl<T: Send+'static> Drop for Packet<T> {
     fn drop(&mut self) {
         while self.recv_async().is_ok() { }
         unsafe { ptr::read(self.read_end.load(SeqCst)); }
     }
 }
 
-unsafe impl<T: Send> _Selectable for Packet<T> {
+unsafe impl<T: Send+'static> _Selectable for Packet<T> {
     fn ready(&self) -> bool {
         if self.disconnected.load(SeqCst) {
             return true;
