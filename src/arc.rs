@@ -26,7 +26,7 @@
 //!
 //! let arc_trait: ArcTrait<Y> = unsafe {
 //!     let arc = Arc::new(X { x: 3 });
-//!     arc.as_trait(arc.static_ref() as &Y)
+//!     arc.as_trait(&*arc as &(Y+'static))
 //! };
 //!
 //! assert_eq!(arc_trait.f(), 3);
@@ -43,76 +43,76 @@ use std::raw::{TraitObject};
 use std::marker::{PhantomData};
 
 #[unsafe_no_drop_flag]
-pub struct Arc<T> {
+pub struct Arc<T: Sync+Send+'static> {
     _ptr: NonZero<*mut ArcInner<T>>,
 }
 
-unsafe impl<T: Sync + Send> Send for Arc<T> { }
-unsafe impl<T: Sync + Send> Sync for Arc<T> { }
+unsafe impl<T: Sync+Send+'static> Send for Arc<T> { }
+unsafe impl<T: Sync+Send+'static> Sync for Arc<T> { }
 
 #[unsafe_no_drop_flag]
-pub struct Weak<T> {
+pub struct Weak<T: Sync+Send+'static> {
     _ptr: NonZero<*mut ArcInner<T>>,
 }
 
-unsafe impl<T: Sync + Send> Send for Weak<T> { }
-unsafe impl<T: Sync + Send> Sync for Weak<T> { }
+unsafe impl<T: Sync+Send+'static> Send for Weak<T> { }
+unsafe impl<T: Sync+Send+'static> Sync for Weak<T> { }
 
 /// An atomically reference counted wrapper of a trait object.
 #[unsafe_no_drop_flag]
-pub struct ArcTrait<T: ?Sized> {
+pub struct ArcTrait<Trait: ?Sized+'static> {
     /// Size of ArcInner<X>
     _size: usize,
     /// Alignment of ArcInner<X>
     _alignment: usize,
     /// Destructor of X
     _destructor: fn(*mut ()),
-    /// &T
+    /// &Trait
     _trait: TraitObject,
 
     _ptr: NonZero<*mut ArcInner<u8>>,
 
-    _marker: PhantomData<T>,
+    _marker: PhantomData<Trait>,
 }
 
-unsafe impl<T: Sync + Send> Send for ArcTrait<T> {}
-unsafe impl<T: Sync + Send> Sync for ArcTrait<T> {}
+unsafe impl<Trait: ?Sized+'static> Send for ArcTrait<Trait> {}
+unsafe impl<Trait: ?Sized+'static> Sync for ArcTrait<Trait> {}
 
 /// A weak pointer to an `ArcTrait`.
 #[unsafe_no_drop_flag]
-pub struct WeakTrait<T: ?Sized> {
+pub struct WeakTrait<Trait: ?Sized+'static> {
     /// Size of ArcInner<X>
     _size: usize,
     /// Alignment of ArcInner<X>
     _alignment: usize,
     /// Destructor of X
     _destructor: fn(*mut ()),
-    /// &T
+    /// &Trait
     _trait: TraitObject,
 
     _ptr: NonZero<*mut ArcInner<u8>>,
 
-    _marker: PhantomData<T>,
+    _marker: PhantomData<Trait>,
 }
 
-unsafe impl<T: Sync + Send> Send for WeakTrait<T> {}
-unsafe impl<T: Sync + Send> Sync for WeakTrait<T> {}
+unsafe impl<Trait: ?Sized+'static> Send for WeakTrait<Trait> {}
+unsafe impl<Trait: ?Sized+'static> Sync for WeakTrait<Trait> {}
 
 #[repr(C)]
-struct ArcInner<T> {
+struct ArcInner<T: Sync+Send+'static> {
     strong: atomic::AtomicUsize,
     weak: atomic::AtomicUsize,
     data: T,
 }
 
-unsafe impl<T: Sync + Send> Send for ArcInner<T> {}
-unsafe impl<T: Sync + Send> Sync for ArcInner<T> {}
+unsafe impl<T: Sync+Send+'static> Send for ArcInner<T> {}
+unsafe impl<T: Sync+Send+'static> Sync for ArcInner<T> {}
 
 fn ptr_drop<T>(data: *mut ()) {
     unsafe { ptr::read(data as *mut T); }
 }
 
-impl<T> Arc<T> {
+impl<T: Sync+Send+'static> Arc<T> {
     #[inline]
     pub fn new(data: T) -> Arc<T> {
         // Start the weak pointer count as 1 which is the weak pointer that's
@@ -141,8 +141,8 @@ impl<T> Arc<T> {
     }
 
     /// Creates an ArcTrait from an Arc. `t` must be a trait object created by calling
-    /// `self.static_ref() as &Trait`. Otherwise the behavior is undefined.
-    pub unsafe fn as_trait<Trait: ?Sized>(&self, t: &Trait) -> ArcTrait<Trait> {
+    /// `&*self as &(Trait+'static)`. Otherwise the behavior is undefined.
+    pub unsafe fn as_trait<Trait: ?Sized+'static>(&self, t: &Trait) -> ArcTrait<Trait> {
         assert!(mem::size_of::<&Trait>() == mem::size_of::<TraitObject>());
 
         let _trait = ptr::read(&t as *const _ as *const TraitObject);
@@ -162,10 +162,6 @@ impl<T> Arc<T> {
         }
     }
 
-    pub unsafe fn static_ref(&self) -> &'static T {
-        mem::transmute(self.deref())
-    }
-
     #[inline]
     pub fn weak_count(&self) -> usize {
         self.inner().weak.load(SeqCst) - 1
@@ -182,7 +178,7 @@ impl<T> Arc<T> {
     }
 }
 
-impl<T> Clone for Arc<T> {
+impl<T: Sync+Send+'static> Clone for Arc<T> {
     #[inline]
     fn clone(&self) -> Arc<T> {
         // Using a relaxed ordering is alright here, as knowledge of the original
@@ -199,7 +195,7 @@ impl<T> Clone for Arc<T> {
     }
 }
 
-impl<T> Deref for Arc<T> {
+impl<T: Sync+Send+'static> Deref for Arc<T> {
     type Target = T;
 
     #[inline]
@@ -209,7 +205,7 @@ impl<T> Deref for Arc<T> {
 }
 
 #[unsafe_destructor]
-impl<T: Sync + Send> Drop for Arc<T> {
+impl<T: Sync+Send+'static> Drop for Arc<T> {
     fn drop(&mut self) {
         // This structure has #[unsafe_no_drop_flag], so this drop glue may run more than
         // once (but it is guaranteed to be zeroed after the first if it's run more than
@@ -238,7 +234,7 @@ impl<T: Sync + Send> Drop for Arc<T> {
     }
 }
 
-impl<T: Sync + Send> Weak<T> {
+impl<T: Sync+Send+'static> Weak<T> {
     pub fn upgrade(&self) -> Option<Arc<T>> {
         // We use a CAS loop to increment the strong count instead of a fetch_add because
         // once the count hits 0 is must never be above 0.
@@ -273,7 +269,7 @@ impl<T: Sync + Send> Weak<T> {
     }
 }
 
-impl<T: Sync + Send> Clone for Weak<T> {
+impl<T: Sync+Send+'static> Clone for Weak<T> {
     #[inline]
     fn clone(&self) -> Weak<T> {
         // See comments in Arc::clone() for why this is relaxed
@@ -283,7 +279,7 @@ impl<T: Sync + Send> Clone for Weak<T> {
 }
 
 #[unsafe_destructor]
-impl<T: Sync + Send> Drop for Weak<T> {
+impl<T: Sync+Send+'static> Drop for Weak<T> {
     fn drop(&mut self) {
         let ptr = *self._ptr;
 
@@ -300,14 +296,14 @@ impl<T: Sync + Send> Drop for Weak<T> {
     }
 }
 
-impl<T: fmt::Debug> fmt::Debug for Arc<T> {
+impl<T: fmt::Debug+Sync+Send+'static> fmt::Debug for Arc<T> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(&**self, f)
     }
 }
 
-impl<T: ?Sized> ArcTrait<T> {
-    pub fn downgrade(&self) -> WeakTrait<T> {
+impl<Trait: ?Sized+'static> ArcTrait<Trait> {
+    pub fn downgrade(&self) -> WeakTrait<Trait> {
         // See the clone() impl for why this is relaxed
         self.inner().weak.fetch_add(1, Relaxed);
         WeakTrait {
@@ -343,9 +339,9 @@ impl<T: ?Sized> ArcTrait<T> {
     }
 }
 
-impl<T: ?Sized> Clone for ArcTrait<T> {
+impl<Trait: ?Sized+'static> Clone for ArcTrait<Trait> {
     #[inline]
-    fn clone(&self) -> ArcTrait<T> {
+    fn clone(&self) -> ArcTrait<Trait> {
         self.inner().strong.fetch_add(1, Relaxed);
         ArcTrait {
             _size: self._size,
@@ -360,17 +356,17 @@ impl<T: ?Sized> Clone for ArcTrait<T> {
     }
 }
 
-impl<T: ?Sized> Deref for ArcTrait<T> {
-    type Target = T;
+impl<Trait: ?Sized+'static> Deref for ArcTrait<Trait> {
+    type Target = Trait;
 
     #[inline]
-    fn deref(&self) -> &T {
+    fn deref(&self) -> &Trait {
         unsafe { ptr::read(&self._trait as *const _ as *const _) }
     }
 }
 
 #[unsafe_destructor]
-impl<T: Sync+Send+?Sized> Drop for ArcTrait<T> {
+impl<Trait: ?Sized+'static> Drop for ArcTrait<Trait> {
     fn drop(&mut self) {
         // This structure has #[unsafe_no_drop_flag], so this drop glue may run more than
         // once (but it is guaranteed to be zeroed after the first if it's run more than
@@ -398,8 +394,8 @@ impl<T: Sync+Send+?Sized> Drop for ArcTrait<T> {
     }
 }
 
-impl<T: ?Sized> WeakTrait<T> {
-    pub fn upgrade(&self) -> Option<ArcTrait<T>> {
+impl<Trait: ?Sized+'static> WeakTrait<Trait> {
+    pub fn upgrade(&self) -> Option<ArcTrait<Trait>> {
         // We use a CAS loop to increment the strong count instead of a fetch_add because
         // once the count hits 0 is must never be above 0.
         let inner = self.inner();
@@ -445,9 +441,9 @@ impl<T: ?Sized> WeakTrait<T> {
     }
 }
 
-impl<T: Sync+Send+?Sized> Clone for WeakTrait<T> {
+impl<Trait: ?Sized+'static> Clone for WeakTrait<Trait> {
     #[inline]
-    fn clone(&self) -> WeakTrait<T> {
+    fn clone(&self) -> WeakTrait<Trait> {
         // See comments in Arc::clone() for why this is relaxed
         self.inner().weak.fetch_add(1, Relaxed);
         WeakTrait {
@@ -464,7 +460,7 @@ impl<T: Sync+Send+?Sized> Clone for WeakTrait<T> {
 }
 
 #[unsafe_destructor]
-impl<T: Sync+Send+?Sized> Drop for WeakTrait<T> {
+impl<Trait: ?Sized+'static> Drop for WeakTrait<Trait> {
     fn drop(&mut self) {
         let ptr = *self._ptr;
 
@@ -502,7 +498,7 @@ mod test {
     fn test1() {
         let arc_trait: ArcTrait<Y> = unsafe {
             let arc = Arc::new(X { x: 3 });
-            arc.as_trait(arc.static_ref() as &Y)
+            arc.as_trait(&*arc as &(Y+'static))
         };
 
         assert_eq!(arc_trait.f(), 3);
@@ -512,7 +508,7 @@ mod test {
     fn test2() {
         let arc_trait: ArcTrait<Y> = unsafe {
             let arc = Arc::new(X { x: 3 });
-            arc.as_trait(arc.static_ref() as &Y)
+            arc.as_trait(&*arc as &(Y+'static))
         };
         let weak = arc_trait.downgrade();
         let strong = weak.upgrade().unwrap();
@@ -524,7 +520,7 @@ mod test {
     fn test3() {
         let arc_trait: ArcTrait<Y> = unsafe {
             let arc = Arc::new(X { x: 3 });
-            arc.as_trait(arc.static_ref() as &Y)
+            arc.as_trait(&*arc as &(Y+'static))
         };
         let weak = arc_trait.downgrade();
         drop(arc_trait);

@@ -51,7 +51,7 @@ impl<T: Send+'static> Drop for Producer<T> {
 }
 
 /// The consuming half of an SPSC one space channel.
-pub struct Consumer<T> {
+pub struct Consumer<T: Send+'static> {
     data: Arc<imp::Packet<T>>,
 }
 
@@ -96,6 +96,6 @@ impl<T: Send+'static> Selectable for Consumer<T> {
     }
 
     fn as_selectable(&self) -> ArcTrait<_Selectable> {
-        unsafe { self.data.as_trait(self.data.static_ref() as &_Selectable) }
+        unsafe { self.data.as_trait(&*self.data as &(_Selectable+'static)) }
     }
 }

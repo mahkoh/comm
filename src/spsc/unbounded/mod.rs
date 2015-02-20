@@ -92,6 +92,6 @@ impl<T: Send+'static> Selectable for Consumer<T> {
     }
 
     fn as_selectable(&self) -> ArcTrait<_Selectable> {
-        unsafe { self.data.as_trait(self.data.static_ref() as &_Selectable) }
+        unsafe { self.data.as_trait(&*self.data as &(_Selectable+'static)) }
     }
 }
