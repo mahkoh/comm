@@ -4,3 +4,4 @@
 //! be cloned.
 
 pub mod unbounded;
+pub mod bounded_fast;

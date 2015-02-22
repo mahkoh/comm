@@ -100,32 +100,40 @@ impl Select {
     /// - if `duration` is some duration, then it will sleep for at most `duration`, and
     /// - if `duration` is none, then it will only check if at the time of the call any
     ///   targets are ready and return immediately.
+    ///
+    /// # Return value
+    ///
+    /// Returns `None` if the timeout expired.
     pub fn wait_timeout<'a>(&self, ready: &'a mut [usize],
-                            duration: Option<Duration>) -> &'a mut [usize] {
+                            duration: Option<Duration>) -> Option<&'a mut [usize]> {
         let mut inner = self.inner.lock().unwrap();
 
         if inner.wait_list.is_empty() {
-            return &mut [];
+            return Some(&mut []);
         }
 
         if let Some(n) = inner.check_ready_list(ready) {
-            return &mut ready[..n];
+            return Some(&mut ready[..n]);
         }
 
         let duration = match duration {
             Some(d) => d,
-            _ => return &mut [],
+            _ => return Some(&mut []),
         };
 
-        inner = self.condvar.wait_timeout_with(inner, duration, |inner| {
+        let (inner, notified) = self.condvar.wait_timeout_with(inner, duration, |inner| {
             inner.unwrap().ready_list.len() > 0
-        }).unwrap().0;
+        }).unwrap();
+
+        if !notified {
+            return None;
+        }
 
         let min = cmp::min(ready.len(), inner.ready_list.len());
         for i in 0..min {
             ready[i] = inner.ready_list[i];
         }
-        &mut ready[..min]
+        Some(&mut ready[..min])
     }
 }
 

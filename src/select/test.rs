@@ -39,7 +39,7 @@ fn ready_list_one() {
     let select = Select::new();
     select.add(&recv);
     send.send(1u8).unwrap();
-    assert!(select.wait_timeout(&mut [0], None) == &mut [recv.id()][..]);
+    assert!(select.wait_timeout(&mut [0], None) == Some(&mut [recv.id()][..]));
 }
 
 #[test]
