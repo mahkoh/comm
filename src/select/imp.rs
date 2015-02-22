@@ -2,6 +2,7 @@ use std::collections::{HashMap};
 use std::hash::{Hash, Hasher};
 use std::sync::{Mutex, Condvar};
 use std::cmp::{self, Ordering};
+use std::time::{Duration};
 use std::{mem};
 
 use arc::{Arc, Weak, WeakTrait};
@@ -93,9 +94,14 @@ impl Select {
         &mut ready[..min]
     }
 
-    /// Checks if any of the targets are ready and, if so, copies them into the array.
-    /// Does not block if no target is ready.
-    pub fn check_ready_list<'a>(&self, ready: &'a mut [usize]) -> &'a mut [usize] {
+    /// Waits for any of the targets in the `Select` object to become ready. The semantics
+    /// are as for the `wait` function except that
+    ///
+    /// - if `duration` is some duration, then it will sleep for at most `duration`, and
+    /// - if `duration` is none, then it will only check if at the time of the call any
+    ///   targets are ready and return immediately.
+    pub fn wait_timeout<'a>(&self, ready: &'a mut [usize],
+                            duration: Option<Duration>) -> &'a mut [usize] {
         let mut inner = self.inner.lock().unwrap();
 
         if inner.wait_list.is_empty() {
@@ -103,10 +109,23 @@ impl Select {
         }
 
         if let Some(n) = inner.check_ready_list(ready) {
-            &mut ready[..n]
-        } else {
-            &mut []
+            return &mut ready[..n];
         }
+
+        let duration = match duration {
+            Some(d) => d,
+            _ => return &mut [],
+        };
+
+        inner = self.condvar.wait_timeout_with(inner, duration, |inner| {
+            inner.unwrap().ready_list.len() > 0
+        }).unwrap().0;
+
+        let min = cmp::min(ready.len(), inner.ready_list.len());
+        for i in 0..min {
+            ready[i] = inner.ready_list[i];
+        }
+        &mut ready[..min]
     }
 }
 
