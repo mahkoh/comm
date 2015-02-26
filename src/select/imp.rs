@@ -183,8 +183,10 @@ impl Inner {
 
     fn check_ready_list(&mut self, ready: &mut [usize]) -> Option<usize> {
         for id in self.ready_list.drain() {
-            if self.wait_list[id].data.upgrade().map(|e| e.ready()).unwrap_or(false) {
-                self.ready_list2.push(id);
+            if let Some(target) = self.wait_list.get(&id) {
+                if target.data.upgrade().map(|e| e.ready()).unwrap_or(false) {
+                    self.ready_list2.push(id);
+                }
             }
         }
         mem::swap(&mut self.ready_list, &mut self.ready_list2);
