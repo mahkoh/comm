@@ -133,8 +133,7 @@ impl<T: Send+'static> Packet<T> {
         }
 
         if flags & WAIT_QUEUE_USED != 0 {
-            self.wait_queue(|q| q.clear());
-            self.flags.fetch_and(!WAIT_QUEUE_USED, Ordering::SeqCst);
+            self.wait_queue(|q| q.notify());
         }
     }
 
