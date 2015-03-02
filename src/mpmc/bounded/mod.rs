@@ -15,11 +15,11 @@ mod imp;
 #[cfg(test)] mod test;
 
 /// An endpoint of a bounded MPMC channel.
-pub struct Channel<T: Send+'static> {
-    data: Arc<imp::Packet<T>>,
+pub struct Channel<'a, T: Send+'a> {
+    data: Arc<imp::Packet<'a, T>>,
 }
 
-impl<T: Send+'static> Channel<T> {
+impl<'a, T: Send+'a> Channel<'a, T> {
     /// Creates a new bounded MPMC channel with capacity at least `cap`.
     ///
     /// ### Panic
@@ -29,7 +29,7 @@ impl<T: Send+'static> Channel<T> {
     /// - `sizeof(usize) == 4 && cap > 2^15`,
     /// - `sizeof(usize) == 8 && cap > 2^31`,
     /// - `next_power_of_two(cap) * sizeof(T) >= isize::MAX`.
-    pub fn new(cap: usize) -> Channel<T> {
+    pub fn new(cap: usize) -> Channel<'a, T> {
         let packet = Arc::new(imp::Packet::new(cap));
         packet.set_id(packet.unique_id());
         Channel { data: packet }
@@ -73,29 +73,29 @@ impl<T: Send+'static> Channel<T> {
     }
 }
 
-unsafe impl<T: Send+'static> Sync for Channel<T> { }
-unsafe impl<T: Send+'static> Send for Channel<T> { }
+unsafe impl<'a, T: Send> Sync for Channel<'a, T> { }
+unsafe impl<'a, T: Send> Send for Channel<'a, T> { }
 
-impl<T: Send+'static> Clone for Channel<T> {
-    fn clone(&self) -> Channel<T> {
+impl<'a, T: Send+'a> Clone for Channel<'a, T> {
+    fn clone(&self) -> Channel<'a, T> {
         self.data.add_peer();
         Channel { data: self.data.clone(), }
     }
 }
 
 #[unsafe_destructor]
-impl<T: Send+'static> Drop for Channel<T> {
+impl<'a, T: Send+'a> Drop for Channel<'a, T> {
     fn drop(&mut self) {
         self.data.remove_peer();
     }
 }
 
-impl<T: Send+'static> Selectable for Channel<T> {
+impl<'a, T: Send+'a> Selectable<'a> for Channel<'a, T> {
     fn id(&self) -> usize {
         self.data.unique_id()
     }
 
-    fn as_selectable(&self) -> ArcTrait<_Selectable> {
-        unsafe { self.data.as_trait(&*self.data as &(_Selectable+'static)) }
+    fn as_selectable(&self) -> ArcTrait<_Selectable<'a>+'a> {
+        unsafe { self.data.as_trait(&*self.data as &(_Selectable+'a)) }
     }
 }

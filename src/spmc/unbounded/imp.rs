@@ -7,7 +7,7 @@ use std::cell::{Cell};
 use select::{_Selectable, WaitQueue, Payload};
 use {Error};
 
-pub struct Packet<T: Send+'static> {
+pub struct Packet<'a, T: Send+'a> {
     // The id of this channel. The address of the `arc::Inner` that contains this channel.
     id: Cell<usize>,
 
@@ -33,15 +33,15 @@ pub struct Packet<T: Send+'static> {
 
     // Is someone selecting on this channel?
     wait_queue_used: AtomicBool,
-    wait_queue: Mutex<WaitQueue>,
+    wait_queue: Mutex<WaitQueue<'a>>,
 }
 
-struct Node<T: Send+'static> {
+struct Node<T: Send> {
     next: AtomicPtr<Node<T>>,
     val: Option<T>,
 }
 
-impl<T: Send+'static> Node<T> {
+impl<T: Send> Node<T> {
     // Creates and forgets a new node.
     fn new() -> *mut Node<T> {
         let mut node = Box::new(Node {
@@ -54,8 +54,8 @@ impl<T: Send+'static> Node<T> {
     }
 }
 
-impl<T: Send+'static> Packet<T> {
-    pub fn new() -> Packet<T> {
+impl<'a, T: Send+'a> Packet<'a, T> {
+    pub fn new() -> Packet<'a, T> {
         let ptr = Node::new();
         Packet {
             id: Cell::new(0),
@@ -193,23 +193,23 @@ impl<T: Send+'static> Packet<T> {
     }
 }
 
-unsafe impl<T: Send+'static> Send for Packet<T> { }
-unsafe impl<T: Send+'static> Sync for Packet<T> { }
+unsafe impl<'a, T: Send+'a> Send for Packet<'a, T> { }
+unsafe impl<'a, T: Send+'a> Sync for Packet<'a, T> { }
 
 #[unsafe_destructor]
-impl<T: Send+'static> Drop for Packet<T> {
+impl<'a, T: Send+'a> Drop for Packet<'a, T> {
     fn drop(&mut self) {
         while self.recv_async().is_ok() { }
         unsafe { ptr::read(self.read_end.load(SeqCst)); }
     }
 }
 
-unsafe impl<T: Send+'static> _Selectable for Packet<T> {
+unsafe impl<'a, T: Send+'a> _Selectable<'a> for Packet<'a, T> {
     fn ready(&self) -> bool {
         !self.have_sender.load(SeqCst) || self.num_queued.load(SeqCst) > 0
     }
 
-    fn register(&self, load: Payload) {
+    fn register(&self, load: Payload<'a>) {
         let mut wait_queue = self.wait_queue.lock().unwrap();
         if wait_queue.add(load) > 0 {
             self.wait_queue_used.store(true, SeqCst);

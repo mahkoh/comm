@@ -9,7 +9,7 @@ use select::{_Selectable, WaitQueue, Payload};
 use alloc::{oom};
 use {Error};
 
-pub struct Packet<T: Send+'static> {
+pub struct Packet<'a, T: Send+'a> {
     // The id of the channel. The address of the `arc::Inner` that contains the channel.
     id: Cell<usize>,
 
@@ -37,11 +37,11 @@ pub struct Packet<T: Send+'static> {
 
     // Is anyone selecting on us?
     wait_queue_used: AtomicBool,
-    wait_queue: Mutex<WaitQueue>,
+    wait_queue: Mutex<WaitQueue<'a>>,
 }
 
-impl<T: Send+'static> Packet<T> {
-    pub fn new(buf_size: usize) -> Packet<T> {
+impl<'a, T: Send+'a> Packet<'a, T> {
+    pub fn new(buf_size: usize) -> Packet<'a, T> {
         let cap = buf_size.checked_next_power_of_two().expect("capacity overflow");
         let size = cap.checked_mul(mem::size_of::<T>()).unwrap_or(!0);
         if size > !0 >> 1 {
@@ -205,11 +205,11 @@ impl<T: Send+'static> Packet<T> {
     }
 }
 
-unsafe impl<T: Send+'static> Send for Packet<T> { }
-unsafe impl<T: Send+'static> Sync for Packet<T> { }
+unsafe impl<'a, T: Send+'a> Send for Packet<'a, T> { }
+unsafe impl<'a, T: Send+'a> Sync for Packet<'a, T> { }
 
 #[unsafe_destructor]
-impl<T: Send+'static> Drop for Packet<T> {
+impl<'a, T: Send+'a> Drop for Packet<'a, T> {
     fn drop(&mut self) {
         let (write_pos, read_pos) = self.get_pos();
         
@@ -227,7 +227,7 @@ impl<T: Send+'static> Drop for Packet<T> {
     }
 }
 
-unsafe impl<T: Send+'static> _Selectable for Packet<T> {
+unsafe impl<'a, T: Send+'a> _Selectable<'a> for Packet<'a, T> {
     fn ready(&self) -> bool {
         if self.sender_disconnected.load(Ordering::SeqCst) {
             return true;
@@ -236,7 +236,7 @@ unsafe impl<T: Send+'static> _Selectable for Packet<T> {
         write_pos != read_pos
     }
 
-    fn register(&self, load: Payload) {
+    fn register(&self, load: Payload<'a>) {
         let mut wait_queue = self.wait_queue.lock().unwrap();
         if wait_queue.add(load) > 0 {
             self.wait_queue_used.store(true, Ordering::SeqCst);

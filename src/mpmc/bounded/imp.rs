@@ -31,7 +31,7 @@ fn compose_pointer(lower: HalfPointer, higher: HalfPointer) -> usize {
     (lower as usize) | ((higher as usize) << HALF_POINTER_BITS)
 }
 
-pub struct Packet<T: Send+'static> {
+pub struct Packet<'a, T: Send+'a> {
     // The id of this channel. The address of the `arc::Inner` that contains this channel.
     id: Cell<usize>,
 
@@ -73,11 +73,11 @@ pub struct Packet<T: Send+'static> {
 
     // Is any one selecting on this channel?
     wait_queue_used: AtomicBool,
-    wait_queue: Mutex<WaitQueue>,
+    wait_queue: Mutex<WaitQueue<'a>>,
 }
 
-impl<T: Send+'static> Packet<T> {
-    pub fn new(buf_size: usize) -> Packet<T> {
+impl<'a, T: Send+'a> Packet<'a, T> {
+    pub fn new(buf_size: usize) -> Packet<'a, T> {
         if buf_size > 1 << (HALF_POINTER_BITS - 1) {
             panic!("capacity overflow");
         }
@@ -361,11 +361,11 @@ impl<T: Send+'static> Packet<T> {
     }
 }
 
-unsafe impl<T: Send+'static> Send for Packet<T> { }
-unsafe impl<T: Send+'static> Sync for Packet<T> { }
+unsafe impl<'a, T: Send+'a> Send for Packet<'a, T> { }
+unsafe impl<'a, T: Send+'a> Sync for Packet<'a, T> { }
 
 #[unsafe_destructor]
-impl<T: Send+'static> Drop for Packet<T> {
+impl<'a, T: Send+'a> Drop for Packet<'a, T> {
     fn drop(&mut self) {
         let wenr = self.write_end_next_read.load(SeqCst);
         let (write_end, read_start) = decompose_pointer(wenr);
@@ -384,7 +384,7 @@ impl<T: Send+'static> Drop for Packet<T> {
     }
 }
 
-unsafe impl<T: Send+'static> _Selectable for Packet<T> {
+unsafe impl<'a, T: Send+'a> _Selectable<'a> for Packet<'a, T> {
     fn ready(&self) -> bool {
         if self.peers_awake.load(SeqCst) == 0 {
             return true;
@@ -394,7 +394,7 @@ unsafe impl<T: Send+'static> _Selectable for Packet<T> {
         write_end != next_read
     }
 
-    fn register(&self, load: Payload) {
+    fn register(&self, load: Payload<'a>) {
         let mut wait_queue = self.wait_queue.lock().unwrap();
         if wait_queue.add(load) > 0 {
             self.wait_queue_used.store(true, SeqCst);

@@ -67,16 +67,16 @@ pub use self::imp::{Select, WaitQueue, Payload};
 use arc::{ArcTrait};
 
 mod imp;
-#[cfg(test)] mod test;
+//#[cfg(test)] mod test;
 
 // Traits are here because https://github.com/rust-lang/rust/issues/16264
 
 /// An object that can be selected on.
-pub trait Selectable {
+pub trait Selectable<'a> {
     /// Returns the id stored by `Select::wait` when this object is ready.
     fn id(&self) -> usize;
     /// Returns the interior object that will be stored in the `Select` object.
-    fn as_selectable(&self) -> ArcTrait<_Selectable>;
+    fn as_selectable(&self) -> ArcTrait<_Selectable<'a>+'a>;
 }
 
 /// The object that will be stored in a `Select` structure while the `Selectable` object
@@ -84,7 +84,7 @@ pub trait Selectable {
 ///
 /// Implementing this trait is unsafe because the behavior is undefined if the
 /// implementation doesn't follow the rules below.
-pub unsafe trait _Selectable: Sync+Send {
+pub unsafe trait _Selectable<'a>: Sync+Send {
     /// Returns `true` if the object is ready, `false` otherwise.
     ///
     /// This function must not try to acquire any locks that are also held while the
@@ -92,7 +92,7 @@ pub unsafe trait _Selectable: Sync+Send {
     fn ready(&self) -> bool;
     /// Registers a `Select` object with the `Selectable` object. The payload must be
     /// passed to the `WaitQueue`.
-    fn register(&self, Payload);
+    fn register(&self, Payload<'a>);
     /// Unregisters a `Select` objects from the `Selectable` object. The id must be passed
     /// to the `WaitQueue`.
     fn unregister(&self, id: usize);

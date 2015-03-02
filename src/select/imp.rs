@@ -10,14 +10,14 @@ use sortedvec::{SortedVec};
 use super::{Selectable, _Selectable};
 
 /// Container for all targets being selected on.
-pub struct Select {
+pub struct Select<'a> {
     condvar: Arc<Condvar>,
-    inner: Arc<Mutex<Inner>>,
+    inner: Arc<Mutex<Inner<'a>>>,
 }
 
-impl Select {
+impl<'a> Select<'a> {
     /// Creates a new `Select` object.
-    pub fn new() -> Select {
+    pub fn new() -> Select<'a> {
         let condvar = Arc::new(Condvar::new());
         Select {
             condvar: condvar.clone(),
@@ -25,12 +25,12 @@ impl Select {
         }
     }
 
-    fn as_payload(&self) -> Payload {
+    fn as_payload(&self) -> Payload<'a> {
         Payload { data: self.inner.downgrade() }
     }
 
     /// Adds a target to the select object.
-    pub fn add<T: Selectable>(&self, sel: &T) {
+    pub fn add<T: Selectable<'a>+'a>(&self, sel: &T) {
         let sel = sel.as_selectable();
 
         // Careful not to deadlock in `register`.
@@ -49,7 +49,7 @@ impl Select {
 
     /// Removes a target from the `Select` object. Returns `true` if the target was
     /// previously registered in the `Select` object, `false` otherwise.
-    pub fn remove<T: Selectable>(&self, sel: &T) -> bool {
+    pub fn remove<T: Selectable<'a>>(&self, sel: &T) -> bool {
         let sel = sel.as_selectable();
 
         let mut inner = self.inner.lock().unwrap();
@@ -72,7 +72,7 @@ impl Select {
     /// of stored `ids`.
     ///
     /// If the select object is empty, an empty slice is returned immediately.
-    pub fn wait<'a>(&self, ready: &'a mut [usize]) -> &'a mut [usize] {
+    pub fn wait<'b>(&self, ready: &'b mut [usize]) -> &'b mut [usize] {
         let mut inner = self.inner.lock().unwrap();
 
         if inner.wait_list.is_empty() {
@@ -104,8 +104,8 @@ impl Select {
     /// # Return value
     ///
     /// Returns `None` if the timeout expired.
-    pub fn wait_timeout<'a>(&self, ready: &'a mut [usize],
-                            duration: Option<Duration>) -> Option<&'a mut [usize]> {
+    pub fn wait_timeout<'b>(&self, ready: &'b mut [usize],
+                            duration: Option<Duration>) -> Option<&'b mut [usize]> {
         let mut inner = self.inner.lock().unwrap();
 
         if inner.wait_list.is_empty() {
@@ -137,11 +137,11 @@ impl Select {
     }
 }
 
-unsafe impl Sync for Select { }
-unsafe impl Send for Select { }
+unsafe impl<'a> Sync for Select<'a> { }
+unsafe impl<'a> Send for Select<'a> { }
 
-struct Inner {
-    wait_list: HashMap<usize, Entry>,
+struct Inner<'a> {
+    wait_list: HashMap<usize, Entry<'a>>,
 
     ready_list: SortedVec<usize>,
     ready_list2: SortedVec<usize>,
@@ -149,8 +149,8 @@ struct Inner {
     condvar: Arc<Condvar>,
 }
 
-impl Inner {
-    fn new(condvar: Arc<Condvar>) -> Inner {
+impl<'a> Inner<'a> {
+    fn new(condvar: Arc<Condvar>) -> Inner<'a> {
         Inner {
             wait_list: HashMap::new(),
             ready_list: SortedVec::new(),
@@ -203,34 +203,34 @@ impl Inner {
     }
 }
 
-unsafe impl Send for Inner { }
+unsafe impl<'a> Send for Inner<'a> { }
 
 #[derive(Clone)]
-struct Entry {
-    data: WeakTrait<_Selectable+'static>,
+struct Entry<'a> {
+    data: WeakTrait<_Selectable<'a>+'a>,
 }
 
-impl PartialEq for Entry {
-    fn eq(&self, other: &Entry) -> bool {
+impl<'a> PartialEq for Entry<'a> {
+    fn eq(&self, other: &Entry<'a>) -> bool {
         self.data.unique_id() == other.data.unique_id()
     }
 }
 
-impl Eq for Entry { }
+impl<'a> Eq for Entry<'a> { }
 
-impl PartialOrd for Entry {
-    fn partial_cmp(&self, other: &Entry) -> Option<Ordering> {
+impl<'a> PartialOrd for Entry<'a> {
+    fn partial_cmp(&self, other: &Entry<'a>) -> Option<Ordering> {
         self.data.unique_id().partial_cmp(&other.data.unique_id())
     }
 }
 
-impl Ord for Entry {
-    fn cmp(&self, other: &Entry) -> Ordering {
+impl<'a> Ord for Entry<'a> {
+    fn cmp(&self, other: &Entry<'a>) -> Ordering {
         self.data.unique_id().cmp(&other.data.unique_id())
     }
 }
 
-impl Hash for Entry {
+impl<'a> Hash for Entry<'a> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.data.unique_id().hash(state);
     }
@@ -238,14 +238,14 @@ impl Hash for Entry {
 
 /// A structure stored by `Selectable` objects to interact with `Select` objects that want
 /// to be notified when the `Selectable` object becomes ready.
-pub struct WaitQueue {
-    queue: Vec<Weak<Mutex<Inner>>>,
+pub struct WaitQueue<'a> {
+    queue: Vec<Weak<Mutex<Inner<'a>>>>,
     id: usize,
 }
 
-impl WaitQueue {
+impl<'a> WaitQueue<'a> {
     /// Creates a new `WaitQueue`. This function does not allocate.
-    pub fn new() -> WaitQueue {
+    pub fn new() -> WaitQueue<'a> {
         WaitQueue {
             queue: vec!(),
             id: 0,
@@ -261,7 +261,7 @@ impl WaitQueue {
 
     /// Add a `Select` object to the `WaitQueue`. Returns the number of `Select` objects
     /// contained in the `WaitQueue` after this call.
-    pub fn add(&mut self, load: Payload) -> usize {
+    pub fn add(&mut self, load: Payload<'a>) -> usize {
         self.queue.push(load.data);
         self.queue.len()
     }
@@ -309,13 +309,14 @@ impl WaitQueue {
     }
 }
 
-impl Drop for WaitQueue {
+#[unsafe_destructor]
+impl<'a> Drop for WaitQueue<'a> {
     fn drop(&mut self) {
         self.clear();
     }
 }
 
 /// Container passed from the `Select` object to a `WaitQueue`.
-pub struct Payload {
-    data: Weak<Mutex<Inner>>,
+pub struct Payload<'a> {
+    data: Weak<Mutex<Inner<'a>>>,
 }

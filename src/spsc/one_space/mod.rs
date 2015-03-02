@@ -18,18 +18,18 @@ mod imp;
 #[cfg(test)] mod bench;
 
 /// Creates a new SPSC one space channel.
-pub fn new<T: Send+'static>() -> (Producer<T>, Consumer<T>) {
+pub fn new<'a, T: Send+'a>() -> (Producer<'a, T>, Consumer<'a, T>) {
     let packet = Arc::new(Packet::new());
     packet.set_id(packet.unique_id());
     (Producer { data: packet.clone() }, Consumer { data: packet })
 }
 
 /// The producing half of an SPSC one space channel.
-pub struct Producer<T: Send+'static> {
-    data: Arc<imp::Packet<T>>,
+pub struct Producer<'a, T: Send+'a> {
+    data: Arc<imp::Packet<'a, T>>,
 }
 
-impl<T: Send+'static> Producer<T> {
+impl<'a, T: Send+'a> Producer<'a, T> {
     /// Sends a message over this channel. Doesn't block if the channel is full.
     ///
     /// ### Error
@@ -41,21 +41,21 @@ impl<T: Send+'static> Producer<T> {
     }
 }
 
-unsafe impl<T: Send+'static> Send for Producer<T> { }
+unsafe impl<'a, T: Send+'a> Send for Producer<'a, T> { }
 
 #[unsafe_destructor]
-impl<T: Send+'static> Drop for Producer<T> {
+impl<'a, T: Send+'a> Drop for Producer<'a, T> {
     fn drop(&mut self) {
         self.data.sender_disconnect();
     }
 }
 
 /// The consuming half of an SPSC one space channel.
-pub struct Consumer<T: Send+'static> {
-    data: Arc<imp::Packet<T>>,
+pub struct Consumer<'a, T: Send+'a> {
+    data: Arc<imp::Packet<'a, T>>,
 }
 
-impl<T: Send+'static> Consumer<T> {
+impl<'a, T: Send+'a> Consumer<'a, T> {
     /// Receives a message from this channel. Doesn't block if the channel is empty.
     ///
     /// ### Error
@@ -81,21 +81,21 @@ impl<T: Send+'static> Consumer<T> {
     }
 }
 
-unsafe impl<T: Send+'static> Send for Consumer<T> { }
+unsafe impl<'a, T: Send+'a> Send for Consumer<'a, T> { }
 
 #[unsafe_destructor]
-impl<T: Send+'static> Drop for Consumer<T> {
+impl<'a, T: Send+'a> Drop for Consumer<'a, T> {
     fn drop(&mut self) {
         self.data.recv_disconnect();
     }
 }
 
-impl<T: Send+'static> Selectable for Consumer<T> {
+impl<'a, T: Send+'a> Selectable<'a> for Consumer<'a, T> {
     fn id(&self) -> usize {
         self.data.unique_id()
     }
 
-    fn as_selectable(&self) -> ArcTrait<_Selectable> {
-        unsafe { self.data.as_trait(&*self.data as &(_Selectable+'static)) }
+    fn as_selectable(&self) -> ArcTrait<_Selectable<'a>+'a> {
+        unsafe { self.data.as_trait(&*self.data as &(_Selectable+'a)) }
     }
 }
