@@ -1,33 +1,33 @@
-//! An SPSC channel with a buffer size of one.
-//!
-//! This channel should mostly be used if the sender only sends a single message.
-//!
-//! ### Example
-//!
-//! Consider the case of an event loop. To request information from the event loop,
-//! another thread might send the event loop a message and the event loop will send the
-//! answer over the channel that was sent together with the request.
+//! An SPSC channel with a buffer size of one stored on the stack.
 
-use arc::{Arc, ArcTrait};
-use self::imp::{Packet};
-use select::{Selectable, _Selectable};
+use std::{mem};
+use super::imp::{Packet};
 use {Error};
 
-mod imp;
-pub mod stack;
-#[cfg(test)] mod test;
-#[cfg(test)] mod bench;
-
 /// Creates a new SPSC one space channel.
-pub fn new<'a, T: Send+'a>() -> (Producer<'a, T>, Consumer<'a, T>) {
-    let packet = Arc::new(Packet::new());
-    packet.set_id(packet.unique_id());
-    (Producer { data: packet.clone() }, Consumer { data: packet })
+pub fn new<'a, T: Send+'a>() -> Slot<'a, T> {
+    Slot { data: Packet::new() }
+}
+
+/// Storage for an SPSC one space channel.
+pub struct Slot<'a, T: Send+'a> {
+    data: Packet<'a, T>,
+}
+
+impl<'a, T: Send+'a> Slot<'a, T> {
+    /// Split the slot into a producing and a consuming end.
+    pub fn split(&mut self) -> (&Producer<'a, T>, &Consumer<'a, T>) {
+        unsafe {
+            let prod = mem::transmute_copy(&self);
+            let cons = mem::transmute(self);
+            (prod, cons)
+        }
+    }
 }
 
 /// The producing half of an SPSC one space channel.
 pub struct Producer<'a, T: Send+'a> {
-    data: Arc<imp::Packet<'a, T>>,
+    data: Packet<'a, T>,
 }
 
 impl<'a, T: Send+'a> Producer<'a, T> {
@@ -53,7 +53,7 @@ impl<'a, T: Send+'a> Drop for Producer<'a, T> {
 
 /// The consuming half of an SPSC one space channel.
 pub struct Consumer<'a, T: Send+'a> {
-    data: Arc<imp::Packet<'a, T>>,
+    data: Packet<'a, T>,
 }
 
 impl<'a, T: Send+'a> Consumer<'a, T> {
@@ -75,11 +75,6 @@ impl<'a, T: Send+'a> Consumer<'a, T> {
     pub fn recv_sync(&self) -> Result<T, Error> {
         self.data.recv_sync()
     }
-
-    /// Returns whether the channel is non-empty.
-    pub fn can_recv(&self) -> bool {
-        self.data.ready()
-    }
 }
 
 unsafe impl<'a, T: Send+'a> Send for Consumer<'a, T> { }
@@ -88,15 +83,5 @@ unsafe impl<'a, T: Send+'a> Send for Consumer<'a, T> { }
 impl<'a, T: Send+'a> Drop for Consumer<'a, T> {
     fn drop(&mut self) {
         self.data.recv_disconnect();
-    }
-}
-
-impl<'a, T: Send+'a> Selectable<'a> for Consumer<'a, T> {
-    fn id(&self) -> usize {
-        self.data.unique_id()
-    }
-
-    fn as_selectable(&self) -> ArcTrait<_Selectable<'a>+'a> {
-        unsafe { self.data.as_trait(&*self.data as &(_Selectable+'a)) }
     }
 }
