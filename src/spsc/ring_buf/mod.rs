@@ -44,7 +44,7 @@ impl<T: Send+'static> Producer<T> {
 #[unsafe_destructor]
 impl<T: Send+'static> Drop for Producer<T> {
     fn drop(&mut self) {
-        self.data.disconnect()
+        self.data.disconnect_sender()
     }
 }
 
@@ -79,7 +79,7 @@ impl<T: Send+'static> Consumer<T> {
 #[unsafe_destructor]
 impl<T: Send+'static> Drop for Consumer<T> {
     fn drop(&mut self) {
-        self.data.disconnect()
+        self.data.disconnect_receiver()
     }
 }
 

@@ -137,6 +137,16 @@ impl<T: Send+'static> Packet<T> {
             } else {
                 self.send_condvar.notify_one();
             }
+            self.notify_wait_queue();
+        }
+    }
+
+    fn notify_wait_queue(&self) {
+        if self.wait_queue_used.load(SeqCst) {
+            let mut wait_queue = self.wait_queue.lock().unwrap();
+            if wait_queue.notify() == 0 {
+                self.wait_queue_used.store(false, SeqCst);
+            }
         }
     }
 
@@ -197,12 +207,7 @@ impl<T: Send+'static> Packet<T> {
             }
         }
 
-        if self.wait_queue_used.load(SeqCst) {
-            let mut wait_queue = self.wait_queue.lock().unwrap();
-            if wait_queue.notify() == 0 {
-                self.wait_queue_used.store(false, SeqCst);
-            }
-        }
+        self.notify_wait_queue();
 
         Ok(())
     }
@@ -381,6 +386,9 @@ impl<T: Send+'static> Drop for Packet<T> {
 
 unsafe impl<T: Send+'static> _Selectable for Packet<T> {
     fn ready(&self) -> bool {
+        if self.peers_awake.load(SeqCst) == 0 {
+            return true;
+        }
         let wenr = self.write_end_next_read.load(SeqCst);
         let (write_end, next_read) = decompose_pointer(wenr);
         write_end != next_read

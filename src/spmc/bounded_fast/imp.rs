@@ -126,6 +126,16 @@ impl<T: Send+'static> Packet<T> {
         if self.sleeping_receivers.load(SeqCst) > 0 {
             self.recv_condvar.notify_all();
         }
+        self.notify_wait_queue();
+    }
+
+    fn notify_wait_queue(&self) {
+        if self.wait_queue_used.load(SeqCst) {
+            let mut wait_queue = self.wait_queue.lock().unwrap();
+            if wait_queue.notify() == 0 {
+                self.wait_queue_used.store(false, SeqCst);
+            }
+        }
     }
 
     fn get_node(&self, pos: usize) -> &mut Node<T> {
@@ -175,12 +185,7 @@ impl<T: Send+'static> Packet<T> {
             }
         }
 
-        if self.wait_queue_used.load(SeqCst) {
-            let mut wait_queue = self.wait_queue.lock().unwrap();
-            if wait_queue.notify() == 0 {
-                self.wait_queue_used.store(false, SeqCst);
-            }
-        }
+        self.notify_wait_queue();
 
         Ok(())
     }
@@ -300,6 +305,9 @@ impl<T: Send+'static> Drop for Packet<T> {
 
 unsafe impl<T: Send+'static> _Selectable for Packet<T> {
     fn ready(&self) -> bool {
+        if self.sender_disconnected.load(SeqCst) {
+            return true;
+        }
         let next_read = self.next_read.load(SeqCst);
         let node = self.get_node(next_read);
         (node.pos.load(SeqCst) - 1 - next_read) as isize >= 0

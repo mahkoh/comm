@@ -19,8 +19,10 @@ pub struct Packet<T: Send+'static> {
     // The address of the Node we'll read the next message to.
     write_end: Cell<*mut Node<T>>,
 
-    // Has one of the endpoints disconnected?
-    disconnected: AtomicBool,
+    // Has the sender disconnected?
+    sender_disconnected: AtomicBool,
+    // Has the receiver disconnected?
+    receiver_disconnected: AtomicBool,
 
     // Is the receiver sleeping?
     have_sleeping: AtomicBool,
@@ -61,7 +63,8 @@ impl<T: Send+'static> Packet<T> {
             read_end:  AtomicPtr::new(ptr),
             write_end: Cell::new(ptr),
 
-            disconnected: AtomicBool::new(false),
+            sender_disconnected: AtomicBool::new(false),
+            receiver_disconnected: AtomicBool::new(false),
 
             have_sleeping: AtomicBool::new(false),
             sleeping_mutex: Mutex::new(()),
@@ -78,11 +81,21 @@ impl<T: Send+'static> Packet<T> {
         self.wait_queue.lock().unwrap().set_id(id);
     }
 
-    /// Call this when one of the endpoints disconnects.
-    pub fn disconnect(&self) {
-        if !self.disconnected.swap(true, SeqCst) {
+    /// Call this when the receiver disconnects.
+    pub fn disconnect_receiver(&self) {
+        self.receiver_disconnected.store(true, SeqCst);
+        if !self.sender_disconnected.load(SeqCst) {
             self.notify_sleeping();
         }
+    }
+
+    /// Call this when the sender disconnects.
+    pub fn disconnect_sender(&self) {
+        self.sender_disconnected.store(true, SeqCst);
+        if !self.receiver_disconnected.load(SeqCst) {
+            self.notify_sleeping();
+        }
+        self.notify_wait_queue();
     }
 
     /// Wakes up the receiver if it's sleeping.
@@ -93,9 +106,18 @@ impl<T: Send+'static> Packet<T> {
         }
     }
 
+    fn notify_wait_queue(&self) {
+        if self.wait_queue_used.load(SeqCst) {
+            let mut wait_queue = self.wait_queue.lock().unwrap();
+            if wait_queue.notify() == 0 {
+                self.wait_queue_used.store(false, SeqCst);
+            }
+        }
+    }
+
     pub fn send(&self, val: T) -> Result<(), (T, Error)> {
         // Don't append another message if nobody can receive it.
-        if self.disconnected.load(SeqCst) {
+        if self.receiver_disconnected.load(SeqCst) {
             return Err((val, Error::Disconnected));
         }
         
@@ -116,12 +138,7 @@ impl<T: Send+'static> Packet<T> {
 
         self.notify_sleeping();
 
-        if self.wait_queue_used.load(SeqCst) {
-            let mut wait_queue = self.wait_queue.lock().unwrap();
-            if wait_queue.notify() == 0 {
-                self.wait_queue_used.store(false, SeqCst);
-            }
-        }
+        self.notify_wait_queue();
 
         Ok(())
     }
@@ -130,7 +147,7 @@ impl<T: Send+'static> Packet<T> {
         let read_end = unsafe { &mut *self.read_end.load(SeqCst) };
         let next = read_end.next.load(SeqCst);
         if next.is_null() {
-            return if self.disconnected.load(SeqCst) {
+            return if self.sender_disconnected.load(SeqCst) {
                 Err(Error::Disconnected)
             } else {
                 Err(Error::Empty)
@@ -177,7 +194,7 @@ impl<T: Send+'static> Drop for Packet<T> {
 
 unsafe impl<T: Send+'static> _Selectable for Packet<T> {
     fn ready(&self) -> bool {
-        if self.disconnected.load(SeqCst) {
+        if self.sender_disconnected.load(SeqCst) {
             return true;
         }
         let read_end = unsafe { &mut *self.read_end.load(SeqCst) };

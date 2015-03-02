@@ -88,6 +88,16 @@ impl<T: Send+'static> Packet<T> {
     pub fn remove_sender(&self) {
         if self.num_senders.fetch_sub(1, SeqCst) == 1 {
             self.notify_sleeping();
+            self.notify_wait_queue();
+        }
+    }
+
+    fn notify_wait_queue(&self) {
+        if self.wait_queue_used.load(SeqCst) {
+            let mut wait_queue = self.wait_queue.lock().unwrap();
+            if wait_queue.notify() == 0 {
+                self.wait_queue_used.store(false, SeqCst);
+            }
         }
     }
 
@@ -120,12 +130,7 @@ impl<T: Send+'static> Packet<T> {
 
         self.notify_sleeping();
 
-        if self.wait_queue_used.load(SeqCst) {
-            let mut wait_queue = self.wait_queue.lock().unwrap();
-            if wait_queue.notify() == 0 {
-                self.wait_queue_used.store(false, SeqCst);
-            }
-        }
+        self.notify_wait_queue();
 
         Ok(())
     }

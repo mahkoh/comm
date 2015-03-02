@@ -30,8 +30,10 @@ pub struct Packet<T: Send+'static> {
     // Convar the sleeping thread is waiting on.
     sleeping_condvar: Condvar,
 
-    // Has one of the endpoints disconnected?
-    disconnected: AtomicBool,
+    // Has the sender disconnected?
+    sender_disconnected: AtomicBool,
+    // Has the receiver disconnected?
+    receiver_disconnected: AtomicBool,
 
     // Is anyone selecting on us?
     wait_queue_used: AtomicBool,
@@ -66,7 +68,8 @@ impl<T: Send+'static> Packet<T> {
             sleeping_mutex:   Mutex::new(()),
             sleeping_condvar: Condvar::new(),
 
-            disconnected: AtomicBool::new(false),
+            sender_disconnected: AtomicBool::new(false),
+            receiver_disconnected: AtomicBool::new(false),
 
             wait_queue_used: AtomicBool::new(false),
             wait_queue: Mutex::new(WaitQueue::new()),
@@ -91,16 +94,35 @@ impl<T: Send+'static> Packet<T> {
         (self.write_pos.load(Ordering::SeqCst), self.read_pos.load(Ordering::SeqCst))
     }
 
-    /// Call this when one of the endpoints disconnects.
-    pub fn disconnect(&self) {
-        if !self.disconnected.swap(true, Ordering::SeqCst) {
+    /// Call this when the receiver disconnects.
+    pub fn disconnect_receiver(&self) {
+        self.receiver_disconnected.store(true, Ordering::SeqCst);
+        if !self.sender_disconnected.load(Ordering::SeqCst) {
             self.notify_sleeping();
+        }
+    }
+
+    /// Call this when the sender disconnects.
+    pub fn disconnect_sender(&self) {
+        self.sender_disconnected.store(true, Ordering::SeqCst);
+        if !self.receiver_disconnected.load(Ordering::SeqCst) {
+            self.notify_sleeping();
+        }
+        self.notify_wait_queue();
+    }
+
+    fn notify_wait_queue(&self) {
+        if self.wait_queue_used.load(Ordering::SeqCst) {
+            let mut wait_queue = self.wait_queue.lock().unwrap();
+            if wait_queue.notify() == 0 {
+                self.wait_queue_used.store(false, Ordering::SeqCst);
+            }
         }
     }
 
     pub fn send(&self, val: T) -> Result<Option<T>, (T, Error)> {
         // Don't even try to store anything in the buffer if the receiver is dead.
-        if self.disconnected.load(Ordering::SeqCst) {
+        if self.receiver_disconnected.load(Ordering::SeqCst) {
             return Err((val, Error::Disconnected));
         }
 
@@ -128,12 +150,7 @@ impl<T: Send+'static> Packet<T> {
 
         self.notify_sleeping();
 
-        if self.wait_queue_used.load(Ordering::SeqCst) {
-            let mut wait_queue = self.wait_queue.lock().unwrap();
-            if wait_queue.notify() == 0 {
-                self.wait_queue_used.store(false, Ordering::SeqCst);
-            }
-        }
+        self.notify_wait_queue();
 
         Ok(old)
     }
@@ -141,7 +158,7 @@ impl<T: Send+'static> Packet<T> {
     pub fn recv_async(&self) -> Result<T, Error> {
         let (write_pos, mut read_pos) = self.get_pos();
         if write_pos == read_pos {
-            return if self.disconnected.load(Ordering::SeqCst) {
+            return if self.sender_disconnected.load(Ordering::SeqCst) {
                 Err(Error::Disconnected)
             } else {
                 Err(Error::Empty)
@@ -212,7 +229,7 @@ impl<T: Send+'static> Drop for Packet<T> {
 
 unsafe impl<T: Send+'static> _Selectable for Packet<T> {
     fn ready(&self) -> bool {
-        if self.disconnected.load(Ordering::SeqCst) {
+        if self.sender_disconnected.load(Ordering::SeqCst) {
             return true;
         }
         let (write_pos, read_pos) = self.get_pos();

@@ -100,6 +100,16 @@ impl<T: Send+'static> Packet<T> {
             let _guard = self.sleeping_mutex.lock().unwrap();
             self.sleeping_condvar.notify_all();
         }
+        self.notify_wait_queue();
+    }
+
+    fn notify_wait_queue(&self) {
+        if self.wait_queue_used.load(SeqCst) {
+            let mut wait_queue = self.wait_queue.lock().unwrap();
+            if wait_queue.notify() == 0 {
+                self.wait_queue_used.store(false, SeqCst);
+            }
+        }
     }
 
     pub fn send(&self, val: T) -> Result<(), (T, Error)> {
@@ -123,12 +133,7 @@ impl<T: Send+'static> Packet<T> {
             self.sleeping_condvar.notify_one();
         }
 
-        if self.wait_queue_used.load(SeqCst) {
-            let mut wait_queue = self.wait_queue.lock().unwrap();
-            if wait_queue.notify() == 0 {
-                self.wait_queue_used.store(false, SeqCst);
-            }
-        }
+        self.notify_wait_queue();
 
         Ok(())
     }
