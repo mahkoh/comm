@@ -8,7 +8,7 @@ use std::cell::{Cell};
 
 use select::{_Selectable, WaitQueue, Payload};
 use alloc::{oom};
-use {Error};
+use {Error, Sendable};
 
 const CACHE_LINE_SIZE: usize = 64;
 
@@ -20,13 +20,13 @@ impl CacheLinePad {
     }
 }
 
-struct Node<T: Send> {
+struct Node<T: Sendable> {
     val: T,
     pos: AtomicUsize,
 }
 
 #[repr(C)]
-pub struct Packet<'a, T: Send+'a> {
+pub struct Packet<'a, T: Sendable+'a> {
     // The id of this channel. The address of the `arc::Inner` that contains this channel.
     id: Cell<usize>,
 
@@ -60,7 +60,7 @@ pub struct Packet<'a, T: Send+'a> {
     wait_queue: Mutex<WaitQueue<'a>>,
 }
 
-impl<'a, T: Send+'a> Packet<'a, T> {
+impl<'a, T: Sendable+'a> Packet<'a, T> {
     pub fn new(mut buf_size: usize) -> Packet<'a, T> {
         buf_size = cmp::max(buf_size, 2);
         let cap = buf_size.checked_next_power_of_two().unwrap_or(!0);
@@ -287,11 +287,11 @@ impl<'a, T: Send+'a> Packet<'a, T> {
     }
 }
 
-unsafe impl<'a, T: Send+'a> Send for Packet<'a, T> { }
-unsafe impl<'a, T: Send+'a> Sync for Packet<'a, T> { }
+unsafe impl<'a, T: Sendable+'a> Send for Packet<'a, T> { }
+unsafe impl<'a, T: Sendable+'a> Sync for Packet<'a, T> { }
 
 #[unsafe_destructor]
-impl<'a, T: Send+'a> Drop for Packet<'a, T> {
+impl<'a, T: Sendable+'a> Drop for Packet<'a, T> {
     fn drop(&mut self) {
         while self.recv_async(false).is_ok() { }
         
@@ -303,7 +303,7 @@ impl<'a, T: Send+'a> Drop for Packet<'a, T> {
     }
 }
 
-unsafe impl<'a, T: Send+'a> _Selectable<'a> for Packet<'a, T> {
+unsafe impl<'a, T: Sendable+'a> _Selectable<'a> for Packet<'a, T> {
     fn ready(&self) -> bool {
         if self.sender_disconnected.load(SeqCst) {
             return true;

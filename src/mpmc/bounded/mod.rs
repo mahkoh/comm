@@ -9,17 +9,17 @@
 
 use arc::{Arc, ArcTrait};
 use select::{Selectable, _Selectable};
-use {Error};
+use {Error, Sendable};
 
 mod imp;
 #[cfg(test)] mod test;
 
 /// An endpoint of a bounded MPMC channel.
-pub struct Channel<'a, T: Send+'a> {
+pub struct Channel<'a, T: Sendable+'a> {
     data: Arc<imp::Packet<'a, T>>,
 }
 
-impl<'a, T: Send+'a> Channel<'a, T> {
+impl<'a, T: Sendable+'a> Channel<'a, T> {
     /// Creates a new bounded MPMC channel with capacity at least `cap`.
     ///
     /// ### Panic
@@ -73,10 +73,10 @@ impl<'a, T: Send+'a> Channel<'a, T> {
     }
 }
 
-unsafe impl<'a, T: Send> Sync for Channel<'a, T> { }
-unsafe impl<'a, T: Send> Send for Channel<'a, T> { }
+unsafe impl<'a, T: Sendable> Sync for Channel<'a, T> { }
+unsafe impl<'a, T: Sendable> Send for Channel<'a, T> { }
 
-impl<'a, T: Send+'a> Clone for Channel<'a, T> {
+impl<'a, T: Sendable+'a> Clone for Channel<'a, T> {
     fn clone(&self) -> Channel<'a, T> {
         self.data.add_peer();
         Channel { data: self.data.clone(), }
@@ -84,13 +84,13 @@ impl<'a, T: Send+'a> Clone for Channel<'a, T> {
 }
 
 #[unsafe_destructor]
-impl<'a, T: Send+'a> Drop for Channel<'a, T> {
+impl<'a, T: Sendable+'a> Drop for Channel<'a, T> {
     fn drop(&mut self) {
         self.data.remove_peer();
     }
 }
 
-impl<'a, T: Send+'a> Selectable<'a> for Channel<'a, T> {
+impl<'a, T: Sendable+'a> Selectable<'a> for Channel<'a, T> {
     fn id(&self) -> usize {
         self.data.unique_id()
     }

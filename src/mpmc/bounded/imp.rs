@@ -12,7 +12,7 @@ use std::cell::{Cell};
 
 use select::{_Selectable, WaitQueue, Payload};
 use alloc::{oom};
-use {Error};
+use {Error, Sendable};
 
 #[cfg(target_pointer_width = "64")]
 type HalfPointer = u32;
@@ -31,7 +31,7 @@ fn compose_pointer(lower: HalfPointer, higher: HalfPointer) -> usize {
     (lower as usize) | ((higher as usize) << HALF_POINTER_BITS)
 }
 
-pub struct Packet<'a, T: Send+'a> {
+pub struct Packet<'a, T: Sendable+'a> {
     // The id of this channel. The address of the `arc::Inner` that contains this channel.
     id: Cell<usize>,
 
@@ -76,7 +76,7 @@ pub struct Packet<'a, T: Send+'a> {
     wait_queue: Mutex<WaitQueue<'a>>,
 }
 
-impl<'a, T: Send+'a> Packet<'a, T> {
+impl<'a, T: Sendable+'a> Packet<'a, T> {
     pub fn new(buf_size: usize) -> Packet<'a, T> {
         if buf_size > 1 << (HALF_POINTER_BITS - 1) {
             panic!("capacity overflow");
@@ -361,11 +361,11 @@ impl<'a, T: Send+'a> Packet<'a, T> {
     }
 }
 
-unsafe impl<'a, T: Send+'a> Send for Packet<'a, T> { }
-unsafe impl<'a, T: Send+'a> Sync for Packet<'a, T> { }
+unsafe impl<'a, T: Sendable+'a> Send for Packet<'a, T> { }
+unsafe impl<'a, T: Sendable+'a> Sync for Packet<'a, T> { }
 
 #[unsafe_destructor]
-impl<'a, T: Send+'a> Drop for Packet<'a, T> {
+impl<'a, T: Sendable+'a> Drop for Packet<'a, T> {
     fn drop(&mut self) {
         let wenr = self.write_end_next_read.load(SeqCst);
         let (write_end, read_start) = decompose_pointer(wenr);
@@ -384,7 +384,7 @@ impl<'a, T: Send+'a> Drop for Packet<'a, T> {
     }
 }
 
-unsafe impl<'a, T: Send+'a> _Selectable<'a> for Packet<'a, T> {
+unsafe impl<'a, T: Sendable+'a> _Selectable<'a> for Packet<'a, T> {
     fn ready(&self) -> bool {
         if self.peers_awake.load(SeqCst) == 0 {
             return true;

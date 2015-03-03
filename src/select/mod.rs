@@ -65,6 +65,7 @@
 pub use self::imp::{Select, WaitQueue, Payload};
 
 use arc::{ArcTrait};
+use {Sendable};
 
 mod imp;
 //#[cfg(test)] mod test;
@@ -84,7 +85,7 @@ pub trait Selectable<'a> {
 ///
 /// Implementing this trait is unsafe because the behavior is undefined if the
 /// implementation doesn't follow the rules below.
-pub unsafe trait _Selectable<'a>: Sync+Send {
+pub unsafe trait _Selectable<'a>: Sync+Sendable {
     /// Returns `true` if the object is ready, `false` otherwise.
     ///
     /// This function must not try to acquire any locks that are also held while the

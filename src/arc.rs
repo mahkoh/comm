@@ -42,21 +42,23 @@ use std::rt::heap::{deallocate};
 use std::raw::{TraitObject};
 use std::marker::{PhantomData};
 
+use {Sendable};
+
 #[unsafe_no_drop_flag]
 pub struct Arc<T> {
     _ptr: NonZero<*mut ArcInner<T>>,
 }
 
-unsafe impl<T: Sync+Send> Send for Arc<T> { }
-unsafe impl<T: Sync+Send> Sync for Arc<T> { }
+unsafe impl<T: Sync+Sendable> Send for Arc<T> { }
+unsafe impl<T: Sync+Sendable> Sync for Arc<T> { }
 
 #[unsafe_no_drop_flag]
 pub struct Weak<T> {
     _ptr: NonZero<*mut ArcInner<T>>,
 }
 
-unsafe impl<T: Sync+Send> Send for Weak<T> { }
-unsafe impl<T: Sync+Send> Sync for Weak<T> { }
+unsafe impl<T: Sync+Sendable> Send for Weak<T> { }
+unsafe impl<T: Sync+Sendable> Sync for Weak<T> { }
 
 /// An atomically reference counted wrapper of a trait object.
 #[unsafe_no_drop_flag]
@@ -75,8 +77,8 @@ pub struct ArcTrait<Trait: ?Sized> {
     _marker: PhantomData<Trait>,
 }
 
-unsafe impl<Trait: ?Sized+Sync+Send> Send for ArcTrait<Trait> {}
-unsafe impl<Trait: ?Sized+Sync+Send> Sync for ArcTrait<Trait> {}
+unsafe impl<Trait: ?Sized+Sync+Sendable> Send for ArcTrait<Trait> {}
+unsafe impl<Trait: ?Sized+Sync+Sendable> Sync for ArcTrait<Trait> {}
 
 /// A weak pointer to an `ArcTrait`.
 #[unsafe_no_drop_flag]
@@ -95,8 +97,8 @@ pub struct WeakTrait<Trait: ?Sized> {
     _marker: PhantomData<Trait>,
 }
 
-unsafe impl<Trait: ?Sized+Sync+Send> Send for WeakTrait<Trait> {}
-unsafe impl<Trait: ?Sized+Sync+Send> Sync for WeakTrait<Trait> {}
+unsafe impl<Trait: ?Sized+Sync+Sendable> Send for WeakTrait<Trait> {}
+unsafe impl<Trait: ?Sized+Sync+Sendable> Sync for WeakTrait<Trait> {}
 
 #[repr(C)]
 struct ArcInner<T> {
@@ -105,8 +107,8 @@ struct ArcInner<T> {
     data: T,
 }
 
-unsafe impl<T: Sync+Send> Send for ArcInner<T> {}
-unsafe impl<T: Sync+Send> Sync for ArcInner<T> {}
+unsafe impl<T: Sync+Sendable> Send for ArcInner<T> {}
+unsafe impl<T: Sync+Sendable> Sync for ArcInner<T> {}
 
 fn ptr_drop<T>(data: *mut ()) {
     unsafe { ptr::read(data as *mut T); }

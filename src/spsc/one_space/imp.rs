@@ -5,7 +5,7 @@ use std::sync::{StaticMutex, MUTEX_INIT};
 use std::{mem};
 use select::{_Selectable, Payload, WaitQueue};
 
-use {Error};
+use {Error, Sendable};
 
 const NONE:                  usize = 0b000000;
 // Set if the sender has disconnected.
@@ -23,7 +23,7 @@ const WAIT_QUEUE_USED:       usize = 0b100000;
 
 const RECEIVER_FLAGS: usize = RECEIVER_WORKING|RECEIVER_SLEEPING|RECEIVER_DISCONNECTED;
 
-pub struct Packet<'a, T: Send+'a> {
+pub struct Packet<'a, T: Sendable+'a> {
     // Id of this channel. Address of the arc::Inner that contains this channel.
     id:               Cell<usize>,
     // A collection of flags, see above.
@@ -37,7 +37,7 @@ pub struct Packet<'a, T: Send+'a> {
     wait_queue:       UnsafeCell<WaitQueue<'a>>,
 }
 
-impl<'a, T: Send+'a> Packet<'a, T> {
+impl<'a, T: Sendable+'a> Packet<'a, T> {
     /// Create a new Packet
     pub fn new() -> Packet<'a, T> {
         Packet {
@@ -222,10 +222,10 @@ impl<'a, T: Send+'a> Packet<'a, T> {
     }
 }
 
-unsafe impl<'a, T: Send+'a> Sync for Packet<'a, T> { }
-unsafe impl<'a, T: Send+'a> Send for Packet<'a, T> { }
+unsafe impl<'a, T: Sendable+'a> Sync for Packet<'a, T> { }
+unsafe impl<'a, T: Sendable+'a> Send for Packet<'a, T> { }
 
-unsafe impl<'a, T: Send+'a> _Selectable<'a> for Packet<'a, T> {
+unsafe impl<'a, T: Sendable+'a> _Selectable<'a> for Packet<'a, T> {
     fn ready(&self) -> bool {
         self.flags.load(Ordering::SeqCst) & (DATA_AVAILABLE | SENDER_DISCONNECTED) != 0
     }
@@ -244,7 +244,7 @@ unsafe impl<'a, T: Send+'a> _Selectable<'a> for Packet<'a, T> {
 }
 
 #[unsafe_destructor]
-impl<'a, T: Send+'a> Drop for Packet<'a, T> {
+impl<'a, T: Sendable+'a> Drop for Packet<'a, T> {
     fn drop(&mut self) {
         unsafe {
             let mutex: &'static StaticMutex = mem::transmute(&self.wait_queue_mutex);

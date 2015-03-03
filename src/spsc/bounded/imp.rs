@@ -10,9 +10,9 @@ use std::cell::{Cell};
 
 use select::{_Selectable, WaitQueue, Payload};
 use alloc::{oom};
-use {Error};
+use {Error, Sendable};
 
-pub struct Packet<'a, T: Send+'a> {
+pub struct Packet<'a, T: Sendable+'a> {
     // Id of the channel. Address of the arc::Inner that contains us.
     id: Cell<usize>,
 
@@ -43,7 +43,7 @@ pub struct Packet<'a, T: Send+'a> {
     wait_queue: Mutex<WaitQueue<'a>>,
 }
 
-impl<'a, T: Send+'a> Packet<'a, T> {
+impl<'a, T: Sendable+'a> Packet<'a, T> {
     pub fn new(buf_size: usize) -> Packet<'a, T> {
         let cap = buf_size.checked_next_power_of_two().expect("capacity overflow");
         let size = cap.checked_mul(mem::size_of::<T>()).unwrap_or(!0);
@@ -223,11 +223,11 @@ impl<'a, T: Send+'a> Packet<'a, T> {
     }
 }
 
-unsafe impl<'a, T: Send+'a> Send for Packet<'a, T> { }
-unsafe impl<'a, T: Send+'a> Sync for Packet<'a, T> { }
+unsafe impl<'a, T: Sendable+'a> Send for Packet<'a, T> { }
+unsafe impl<'a, T: Sendable+'a> Sync for Packet<'a, T> { }
 
 #[unsafe_destructor]
-impl<'a, T: Send+'a> Drop for Packet<'a, T> {
+impl<'a, T: Sendable+'a> Drop for Packet<'a, T> {
     fn drop(&mut self) {
         let (write_pos, read_pos) = self.get_pos();
         
@@ -245,7 +245,7 @@ impl<'a, T: Send+'a> Drop for Packet<'a, T> {
     }
 }
 
-unsafe impl<'a, T: Send+'a> _Selectable<'a> for Packet<'a, T> {
+unsafe impl<'a, T: Sendable+'a> _Selectable<'a> for Packet<'a, T> {
     fn ready(&self) -> bool {
         if self.sender_disconnected.load(SeqCst) {
             return true;

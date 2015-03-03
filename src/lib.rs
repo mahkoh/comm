@@ -89,7 +89,10 @@ extern crate core;
 extern crate alloc;
 #[cfg(test)] extern crate test;
 
+pub use marker::{Sendable};
+
 mod sortedvec;
+mod marker;
 
 pub mod arc;
 pub mod select;
