@@ -19,7 +19,7 @@ type HalfPointer = u32;
 #[cfg(target_pointer_width = "32")]
 type HalfPointer = u16;
 
-const HALF_POINTER_BITS: usize = ::std::usize::BITS / 2;
+const HALF_POINTER_BITS: usize = ::std::usize::BITS as usize / 2;
 
 fn decompose_pointer(val: usize) -> (HalfPointer, HalfPointer) {
     let lower = val as HalfPointer;
