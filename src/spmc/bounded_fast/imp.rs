@@ -146,7 +146,7 @@ impl<'a, T: Sendable+'a> Packet<'a, T> {
     fn get_write_pos(&self) -> Option<usize> {
         let next_write = self.next_write.get();
         let node = self.get_node(next_write);
-        let diff = (node.pos.load(SeqCst) - next_write) as isize;
+        let diff = node.pos.load(SeqCst) as isize - next_write as isize;
         if diff < 0 {
             None
         } else {
@@ -218,7 +218,7 @@ impl<'a, T: Sendable+'a> Packet<'a, T> {
         let mut next_read = self.next_read.load(SeqCst);
         loop {
             let node = self.get_node(next_read);
-            let diff = (node.pos.load(SeqCst) - 1 - next_read) as isize;
+            let diff = node.pos.load(SeqCst) as isize - 1 - next_read as isize;
             if diff < 0 {
                 return None;
             } else if diff > 0 {
@@ -310,7 +310,7 @@ unsafe impl<'a, T: Sendable+'a> _Selectable<'a> for Packet<'a, T> {
         }
         let next_read = self.next_read.load(SeqCst);
         let node = self.get_node(next_read);
-        (node.pos.load(SeqCst) - 1 - next_read) as isize >= 0
+        node.pos.load(SeqCst) as isize - 1 - next_read as isize >= 0
     }
 
     fn register(&self, load: Payload<'a>) {
