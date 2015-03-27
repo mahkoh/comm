@@ -44,7 +44,7 @@ struct Node<'a, T: Sendable+'a> {
 impl<'a, T: Sendable+'a> Node<'a, T> {
     // Creates and forgets a new empty Node.
     fn new() -> *mut Node<'a, T> {
-        let mut node = Box::new(Node {
+        let mut node: Box<Node<T>> = Box::new(Node {
             next: AtomicPtr::new(ptr::null_mut()),
             val: None
         });
