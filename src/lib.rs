@@ -2,7 +2,7 @@
 #![crate_name = "comm"]
 #![feature(unsafe_destructor, box_syntax, core, alloc, collections, unsafe_no_drop_flag,
            std_misc)]
-#![cfg_attr(test, feature(old_io, test))]
+#![cfg_attr(test, feature(thread_sleep, test))]
 #![allow(dead_code)]
 
 //! Communication primitives.
@@ -57,8 +57,9 @@
 //! Selecting:
 //!
 //! ```
-//! use std::{thread};
-//! use std::old_io::{timer};
+//! #![feature(std_misc, thread_sleep)]
+//!
+//! use std::thread::{self, sleep};
 //! use std::time::duration::{Duration};
 //! use comm::{spsc};
 //! use comm::select::{Select, Selectable};
@@ -68,7 +69,7 @@
 //!     let (send, recv) = spsc::one_space::new();
 //!     channels.push(recv);
 //!     thread::spawn(move || {
-//!         timer::sleep(Duration::milliseconds(100));
+//!         sleep(Duration::milliseconds(100));
 //!         send.send(i).ok();
 //!     });
 //! }

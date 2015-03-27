@@ -1,6 +1,5 @@
-use std::old_io::timer::{sleep};
 use std::time::duration::{Duration};
-use std::{thread};
+use std::thread::{self, sleep};
 
 use select::{Select, Selectable};
 use {Error};
