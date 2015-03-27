@@ -3,7 +3,7 @@
 #![feature(unsafe_destructor, box_syntax, core, alloc, collections, unsafe_no_drop_flag,
            std_misc)]
 #![cfg_attr(test, feature(thread_sleep, test))]
-#![allow(dead_code)]
+#![allow(dead_code, trivial_casts, trivial_numeric_casts)]
 
 //! Communication primitives.
 //!
