@@ -1,7 +1,7 @@
 #![crate_type = "lib"]
 #![crate_name = "comm"]
 #![feature(unsafe_destructor, box_syntax, core, alloc, collections, unsafe_no_drop_flag,
-           std_misc)]
+           std_misc, filling_drop)]
 #![cfg_attr(test, feature(thread_sleep, test))]
 #![allow(dead_code, trivial_casts, trivial_numeric_casts)]
 

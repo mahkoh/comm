@@ -34,8 +34,8 @@
 
 use std::sync::atomic::Ordering::{Relaxed, Release, Acquire, SeqCst};
 use std::sync::{atomic};
-use std::{fmt, mem, ptr};
-use std::mem::{min_align_of, size_of};
+use std::{fmt, ptr};
+use std::mem::{self, min_align_of, size_of};
 use core::nonzero::{NonZero};
 use std::ops::{Deref};
 use std::rt::heap::{deallocate};
@@ -213,7 +213,7 @@ impl<T> Drop for Arc<T> {
         // once (but it is guaranteed to be zeroed after the first if it's run more than
         // once)
         let ptr = *self._ptr;
-        if ptr.is_null() { return }
+        if ptr.is_null() || ptr as usize == mem::POST_DROP_USIZE { return }
 
         // If we return here and another thread doesn't, then all of our modifications of
         // the inner data must be made visible before the destructor below runs.
@@ -286,7 +286,7 @@ impl<T> Drop for Weak<T> {
         let ptr = *self._ptr;
 
         // see comments above for why this check is here
-        if ptr.is_null() { return }
+        if ptr.is_null() || ptr as usize == mem::POST_DROP_USIZE { return }
 
         // If we find out that we were the last weak pointer, then its time to deallocate
         // the data entirely. See the discussion in Arc::drop() about the memory orderings
@@ -374,7 +374,7 @@ impl<Trait: ?Sized> Drop for ArcTrait<Trait> {
         // once (but it is guaranteed to be zeroed after the first if it's run more than
         // once)
         let ptr = *self._ptr;
-        if ptr.is_null() { return }
+        if ptr.is_null() || ptr as usize == mem::POST_DROP_USIZE { return }
 
         // If we return here and another thread doesn't, then all of our modifications of
         // the inner data must be made visible before the destructor below runs.
@@ -467,7 +467,7 @@ impl<Trait: ?Sized> Drop for WeakTrait<Trait> {
         let ptr = *self._ptr;
 
         // see comments above for why this check is here
-        if ptr.is_null() { return }
+        if ptr.is_null() || ptr as usize == mem::POST_DROP_USIZE { return }
 
         // If we find out that we were the last weak pointer, then its time to deallocate
         // the data entirely. See the discussion in Arc::drop() about the memory orderings
