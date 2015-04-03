@@ -1,8 +1,8 @@
 #![crate_type = "lib"]
 #![crate_name = "comm"]
 #![feature(unsafe_destructor, box_syntax, core, alloc, collections, unsafe_no_drop_flag,
-           std_misc, filling_drop)]
-#![cfg_attr(test, feature(thread_sleep, test))]
+           std_misc, filling_drop, wait_timeout_with)]
+#![cfg_attr(test, feature(test))]
 #![allow(dead_code, trivial_casts, trivial_numeric_casts)]
 
 //! Communication primitives.
@@ -59,8 +59,7 @@
 //! ```
 //! #![feature(std_misc, thread_sleep)]
 //!
-//! use std::thread::{self, sleep};
-//! use std::time::duration::{Duration};
+//! use std::thread::{self, sleep_ms};
 //! use comm::{spsc};
 //! use comm::select::{Select, Selectable};
 //!

@@ -1,11 +1,10 @@
-use std::time::duration::{Duration};
-use std::thread::{self, sleep};
+use std::thread::{self, sleep_ms};
 
 use select::{Select, Selectable};
 use {Error};
 
 fn ms_sleep(ms: i64) {
-    sleep(Duration::milliseconds(ms));
+    sleep_ms(ms as u32);
 }
 
 #[test]

@@ -1,6 +1,5 @@
 use std::sync::{Arc};
-use std::time::duration::{Duration};
-use std::thread::{self, sleep};
+use std::thread::{self, sleep_ms};
 use std::sync::atomic::{AtomicUsize};
 use std::sync::atomic::Ordering::{SeqCst};
 
@@ -8,7 +7,7 @@ use select::{Select, Selectable};
 use {Error};
 
 fn ms_sleep(ms: i64) {
-    sleep(Duration::milliseconds(ms));
+    sleep_ms(ms as u32);
 }
 
 #[test]
