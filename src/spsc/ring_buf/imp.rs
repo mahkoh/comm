@@ -1,5 +1,4 @@
 use std::{ptr, mem};
-use std::num::{Int};
 use std::sync::atomic::{AtomicUsize, AtomicBool, Ordering};
 use std::sync::{Mutex, Condvar};
 use std::rt::heap::{allocate, deallocate};

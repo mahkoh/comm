@@ -3,7 +3,6 @@
 //! 1024cores does not handle ABA!
 
 use std::{ptr, mem};
-use std::num::{Int};
 use std::sync::atomic::{AtomicUsize, AtomicBool};
 use std::sync::atomic::Ordering::{SeqCst};
 use std::sync::{Mutex, Condvar};
