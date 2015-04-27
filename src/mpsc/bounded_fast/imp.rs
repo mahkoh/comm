@@ -1,5 +1,4 @@
 use std::{ptr, mem, cmp};
-use std::num::{Int};
 use std::sync::atomic::{AtomicUsize, AtomicBool};
 use std::sync::atomic::Ordering::{SeqCst};
 use std::sync::{Mutex, Condvar};

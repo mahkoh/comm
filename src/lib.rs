@@ -2,7 +2,7 @@
 #![crate_name = "comm"]
 #![feature(unsafe_destructor, box_syntax, core, alloc, collections, unsafe_no_drop_flag,
            std_misc, filling_drop, wait_timeout_with)]
-#![cfg_attr(test, feature(test))]
+#![cfg_attr(test, feature(test, scoped))]
 #![allow(dead_code, trivial_casts, trivial_numeric_casts)]
 
 //! Communication primitives.
@@ -68,7 +68,7 @@
 //!     let (send, recv) = spsc::one_space::new();
 //!     channels.push(recv);
 //!     thread::spawn(move || {
-//!         sleep(Duration::milliseconds(100));
+//!         sleep_ms(100);
 //!         send.send(i).ok();
 //!     });
 //! }
