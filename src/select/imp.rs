@@ -182,7 +182,8 @@ impl<'a> Inner<'a> {
     }
 
     fn check_ready_list(&mut self, ready: &mut [usize]) -> Option<usize> {
-        for id in self.ready_list.drain() {
+        let all = 0..self.ready_list.len();
+        for id in self.ready_list.drain(all) {
             if let Some(target) = self.wait_list.get(&id) {
                 if target.data.upgrade().map(|e| e.ready()).unwrap_or(false) {
                     self.ready_list2.push(id);
@@ -300,7 +301,8 @@ impl<'a> WaitQueue<'a> {
     /// `Selectable` object will no longer be available. This happens automatically when
     /// the `WaitQueue` is dropped.
     pub fn clear(&mut self) {
-        for el in self.queue.drain() {
+        let all = 0..self.queue.len();
+        for el in self.queue.drain(all) {
             if let Some(strong) = el.upgrade() {
                 let mut select = strong.lock().unwrap();
                 select.going_away(self.id);
