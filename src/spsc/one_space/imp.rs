@@ -243,7 +243,6 @@ unsafe impl<'a, T: Sendable+'a> _Selectable<'a> for Packet<'a, T> {
     }
 }
 
-#[unsafe_destructor]
 impl<'a, T: Sendable+'a> Drop for Packet<'a, T> {
     fn drop(&mut self) {
         unsafe {

@@ -117,7 +117,7 @@ impl<'a, T: Sendable+'a> Packet<'a, T> {
         if self.num_receivers.load(SeqCst) == 0 {
             return Err((val, Error::Disconnected));
         }
-        
+
         let new_end = Node::new();
 
         // See the comment in the unbounded SPSC implementation.
@@ -146,7 +146,7 @@ impl<'a, T: Sendable+'a> Packet<'a, T> {
                 Err(Error::Empty)
             };
         }
-        
+
         // We have to look at the node in read_end, read next, and then store next in
         // read_end. Unfortunately this is the classic ABA problem. Furthermore, if we
         // just load the value of read_end, then another thread could already deallocate
@@ -196,7 +196,6 @@ impl<'a, T: Sendable+'a> Packet<'a, T> {
 unsafe impl<'a, T: Sendable+'a> Send for Packet<'a, T> { }
 unsafe impl<'a, T: Sendable+'a> Sync for Packet<'a, T> { }
 
-#[unsafe_destructor]
 impl<'a, T: Sendable+'a> Drop for Packet<'a, T> {
     fn drop(&mut self) {
         while self.recv_async().is_ok() { }

@@ -119,7 +119,7 @@ impl<'a, T: Sendable+'a> Packet<'a, T> {
         if !self.have_receiver.load(SeqCst) {
             return Err((val, Error::Disconnected));
         }
-        
+
         // Now this scales right up.
         let new_end = Node::new();
         let write_end = self.write_end.swap(new_end, SeqCst);
@@ -176,7 +176,6 @@ impl<'a, T: Sendable+'a> Packet<'a, T> {
 unsafe impl<'a, T: Sendable+'a> Send for Packet<'a, T> { }
 unsafe impl<'a, T: Sendable+'a> Sync for Packet<'a, T> { }
 
-#[unsafe_destructor]
 impl<'a, T: Sendable+'a> Drop for Packet<'a, T> {
     fn drop(&mut self) {
         while self.recv_async().is_ok() { }

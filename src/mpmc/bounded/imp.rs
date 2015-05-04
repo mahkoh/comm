@@ -363,12 +363,11 @@ impl<'a, T: Sendable+'a> Packet<'a, T> {
 unsafe impl<'a, T: Sendable+'a> Send for Packet<'a, T> { }
 unsafe impl<'a, T: Sendable+'a> Sync for Packet<'a, T> { }
 
-#[unsafe_destructor]
 impl<'a, T: Sendable+'a> Drop for Packet<'a, T> {
     fn drop(&mut self) {
         let wenr = self.write_end_next_read.load(SeqCst);
         let (write_end, read_start) = decompose_pointer(wenr);
-        
+
         unsafe {
             for i in (0..write_end-read_start) {
                 self.get_mem(read_start + i);

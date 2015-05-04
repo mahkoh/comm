@@ -311,7 +311,6 @@ impl<'a> WaitQueue<'a> {
     }
 }
 
-#[unsafe_destructor]
 impl<'a> Drop for WaitQueue<'a> {
     fn drop(&mut self) {
         self.clear();

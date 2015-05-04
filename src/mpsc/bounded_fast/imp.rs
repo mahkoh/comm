@@ -289,11 +289,10 @@ impl<'a, T: Sendable+'a> Packet<'a, T> {
 unsafe impl<'a, T: Sendable+'a> Send for Packet<'a, T> { }
 unsafe impl<'a, T: Sendable+'a> Sync for Packet<'a, T> { }
 
-#[unsafe_destructor]
 impl<'a, T: Sendable+'a> Drop for Packet<'a, T> {
     fn drop(&mut self) {
         while self.recv_async(false).is_ok() { }
-        
+
         unsafe {
             deallocate(self.buf as *mut u8,
                        (self.cap_mask as usize + 1) * mem::size_of::<Node<T>>(),

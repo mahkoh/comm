@@ -83,7 +83,6 @@ impl<'a, T: Sendable+'a> Clone for Channel<'a, T> {
     }
 }
 
-#[unsafe_destructor]
 impl<'a, T: Sendable+'a> Drop for Channel<'a, T> {
     fn drop(&mut self) {
         self.data.remove_peer();
