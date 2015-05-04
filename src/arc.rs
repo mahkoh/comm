@@ -206,7 +206,6 @@ impl<T> Deref for Arc<T> {
     }
 }
 
-#[unsafe_destructor]
 impl<T> Drop for Arc<T> {
     fn drop(&mut self) {
         // This structure has #[unsafe_no_drop_flag], so this drop glue may run more than
@@ -280,7 +279,6 @@ impl<T> Clone for Weak<T> {
     }
 }
 
-#[unsafe_destructor]
 impl<T> Drop for Weak<T> {
     fn drop(&mut self) {
         let ptr = *self._ptr;
@@ -367,7 +365,6 @@ impl<Trait: ?Sized> Deref for ArcTrait<Trait> {
     }
 }
 
-#[unsafe_destructor]
 impl<Trait: ?Sized> Drop for ArcTrait<Trait> {
     fn drop(&mut self) {
         // This structure has #[unsafe_no_drop_flag], so this drop glue may run more than
@@ -461,7 +458,6 @@ impl<Trait: ?Sized> Clone for WeakTrait<Trait> {
     }
 }
 
-#[unsafe_destructor]
 impl<Trait: ?Sized> Drop for WeakTrait<Trait> {
     fn drop(&mut self) {
         let ptr = *self._ptr;

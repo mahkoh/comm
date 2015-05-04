@@ -45,7 +45,6 @@ impl<'a, T: Sendable+'a> Producer<'a, T> {
     }
 }
 
-#[unsafe_destructor]
 impl<'a, T: Sendable+'a> Drop for Producer<'a, T> {
     fn drop(&mut self) {
         self.data.disconnect_sender()
@@ -80,7 +79,6 @@ impl<'a, T: Sendable+'a> Consumer<'a, T> {
     }
 }
 
-#[unsafe_destructor]
 impl<'a, T: Sendable+'a> Drop for Consumer<'a, T> {
     fn drop(&mut self) {
         self.data.disconnect_receiver()
