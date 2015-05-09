@@ -5,18 +5,18 @@ use super::imp::{Packet};
 use {Error, Sendable};
 
 /// Creates a new SPSC one space channel.
-pub fn new<'a, T: Sendable+'a>() -> Slot<'a, T> {
+pub fn new<T: Sendable>() -> Slot<T> {
     Slot { data: Packet::new() }
 }
 
 /// Storage for an SPSC one space channel.
-pub struct Slot<'a, T: Sendable+'a> {
-    data: Packet<'a, T>,
+pub struct Slot<T: Sendable> {
+    data: Packet<T>,
 }
 
-impl<'a, T: Sendable+'a> Slot<'a, T> {
+impl<T: Sendable> Slot<T> {
     /// Split the slot into a producing and a consuming end.
-    pub fn split(&mut self) -> (&Producer<'a, T>, &Consumer<'a, T>) {
+    pub fn split(&mut self) -> (&Producer<T>, &Consumer<T>) {
         unsafe {
             let prod = mem::transmute_copy(&self);
             let cons = mem::transmute(self);
@@ -26,11 +26,11 @@ impl<'a, T: Sendable+'a> Slot<'a, T> {
 }
 
 /// The producing half of an SPSC one space channel.
-pub struct Producer<'a, T: Sendable+'a> {
-    data: Packet<'a, T>,
+pub struct Producer<T: Sendable> {
+    data: Packet<T>,
 }
 
-impl<'a, T: Sendable+'a> Producer<'a, T> {
+impl<T: Sendable> Producer<T> {
     /// Sends a message over this channel. Doesn't block if the channel is full.
     ///
     /// ### Error
@@ -42,20 +42,20 @@ impl<'a, T: Sendable+'a> Producer<'a, T> {
     }
 }
 
-unsafe impl<'a, T: Sendable+'a> Send for Producer<'a, T> { }
+unsafe impl<T: Sendable> Send for Producer<T> { }
 
-impl<'a, T: Sendable+'a> Drop for Producer<'a, T> {
+impl<T: Sendable> Drop for Producer<T> {
     fn drop(&mut self) {
         self.data.sender_disconnect();
     }
 }
 
 /// The consuming half of an SPSC one space channel.
-pub struct Consumer<'a, T: Sendable+'a> {
-    data: Packet<'a, T>,
+pub struct Consumer<T: Sendable> {
+    data: Packet<T>,
 }
 
-impl<'a, T: Sendable+'a> Consumer<'a, T> {
+impl<T: Sendable> Consumer<T> {
     /// Receives a message from this channel. Doesn't block if the channel is empty.
     ///
     /// ### Error
@@ -76,9 +76,9 @@ impl<'a, T: Sendable+'a> Consumer<'a, T> {
     }
 }
 
-unsafe impl<'a, T: Sendable+'a> Send for Consumer<'a, T> { }
+unsafe impl<T: Sendable> Send for Consumer<T> { }
 
-impl<'a, T: Sendable+'a> Drop for Consumer<'a, T> {
+impl<T: Sendable> Drop for Consumer<T> {
     fn drop(&mut self) {
         self.data.recv_disconnect();
     }

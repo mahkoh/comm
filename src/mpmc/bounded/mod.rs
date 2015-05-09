@@ -10,16 +10,18 @@
 use arc::{Arc, ArcTrait};
 use select::{Selectable, _Selectable};
 use {Error, Sendable};
+use std::ptr;
+use std::raw::TraitObject;
 
 mod imp;
 #[cfg(test)] mod test;
 
 /// An endpoint of a bounded MPMC channel.
-pub struct Channel<'a, T: Sendable+'a> {
-    data: Arc<imp::Packet<'a, T>>,
+pub struct Channel<T: Sendable> {
+    data: Arc<imp::Packet<T>>,
 }
 
-impl<'a, T: Sendable+'a> Channel<'a, T> {
+impl<T: Sendable> Channel<T> {
     /// Creates a new bounded MPMC channel with capacity at least `cap`.
     ///
     /// ### Panic
@@ -29,7 +31,7 @@ impl<'a, T: Sendable+'a> Channel<'a, T> {
     /// - `sizeof(usize) == 4 && cap > 2^15`,
     /// - `sizeof(usize) == 8 && cap > 2^31`,
     /// - `next_power_of_two(cap) * sizeof(T) >= isize::MAX`.
-    pub fn new(cap: usize) -> Channel<'a, T> {
+    pub fn new(cap: usize) -> Channel<T> {
         let packet = Arc::new(imp::Packet::new(cap));
         packet.set_id(packet.unique_id());
         Channel { data: packet }
@@ -73,28 +75,28 @@ impl<'a, T: Sendable+'a> Channel<'a, T> {
     }
 }
 
-unsafe impl<'a, T: Sendable> Sync for Channel<'a, T> { }
-unsafe impl<'a, T: Sendable> Send for Channel<'a, T> { }
+unsafe impl<T: Sendable> Sync for Channel<T> { }
+unsafe impl<T: Sendable> Send for Channel<T> { }
 
-impl<'a, T: Sendable+'a> Clone for Channel<'a, T> {
-    fn clone(&self) -> Channel<'a, T> {
+impl<T: Sendable> Clone for Channel<T> {
+    fn clone(&self) -> Channel<T> {
         self.data.add_peer();
         Channel { data: self.data.clone(), }
     }
 }
 
-impl<'a, T: Sendable+'a> Drop for Channel<'a, T> {
+impl<T: Sendable> Drop for Channel<T> {
     fn drop(&mut self) {
         self.data.remove_peer();
     }
 }
 
-impl<'a, T: Sendable+'a> Selectable<'a> for Channel<'a, T> {
+impl<T: Sendable> Selectable for Channel<T> {
     fn id(&self) -> usize {
         self.data.unique_id()
     }
 
-    fn as_selectable(&self) -> ArcTrait<_Selectable<'a>+'a> {
-        unsafe { self.data.as_trait(&*self.data as &(_Selectable+'a)) }
+    fn as_selectable(&self) -> ArcTrait<_Selectable> {
+        unsafe { self.data.as_trait(ptr::read(&(&*self.data as &(_Selectable)) as *const _ as *const TraitObject)) }
     }
 }

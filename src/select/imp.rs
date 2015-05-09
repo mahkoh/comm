@@ -10,14 +10,14 @@ use sortedvec::{SortedVec};
 use super::{Selectable, _Selectable};
 
 /// Container for all targets being selected on.
-pub struct Select<'a> {
+pub struct Select {
     condvar: Arc<Condvar>,
-    inner: Arc<Mutex<Inner<'a>>>,
+    inner: Arc<Mutex<Inner>>,
 }
 
-impl<'a> Select<'a> {
+impl Select {
     /// Creates a new `Select` object.
-    pub fn new() -> Select<'a> {
+    pub fn new() -> Select {
         let condvar = Arc::new(Condvar::new());
         Select {
             condvar: condvar.clone(),
@@ -25,12 +25,12 @@ impl<'a> Select<'a> {
         }
     }
 
-    fn as_payload(&self) -> Payload<'a> {
+    fn as_payload(&self) -> Payload {
         Payload { data: self.inner.downgrade() }
     }
 
     /// Adds a target to the select object.
-    pub fn add<T: Selectable<'a>+'a>(&self, sel: &T) {
+    pub fn add<T: Selectable>(&self, sel: &T) {
         let sel = sel.as_selectable();
 
         // Careful not to deadlock in `register`.
@@ -49,7 +49,7 @@ impl<'a> Select<'a> {
 
     /// Removes a target from the `Select` object. Returns `true` if the target was
     /// previously registered in the `Select` object, `false` otherwise.
-    pub fn remove<T: Selectable<'a>>(&self, sel: &T) -> bool {
+    pub fn remove<T: Selectable>(&self, sel: &T) -> bool {
         let sel = sel.as_selectable();
 
         let mut inner = self.inner.lock().unwrap();
@@ -137,11 +137,11 @@ impl<'a> Select<'a> {
     }
 }
 
-unsafe impl<'a> Sync for Select<'a> { }
-unsafe impl<'a> Send for Select<'a> { }
+unsafe impl Sync for Select { }
+unsafe impl Send for Select { }
 
-struct Inner<'a> {
-    wait_list: HashMap<usize, Entry<'a>>,
+struct Inner {
+    wait_list: HashMap<usize, Entry>,
 
     ready_list: SortedVec<usize>,
     ready_list2: SortedVec<usize>,
@@ -149,8 +149,8 @@ struct Inner<'a> {
     condvar: Arc<Condvar>,
 }
 
-impl<'a> Inner<'a> {
-    fn new(condvar: Arc<Condvar>) -> Inner<'a> {
+impl Inner {
+    fn new(condvar: Arc<Condvar>) -> Inner {
         Inner {
             wait_list: HashMap::new(),
             ready_list: SortedVec::new(),
@@ -204,34 +204,34 @@ impl<'a> Inner<'a> {
     }
 }
 
-unsafe impl<'a> Send for Inner<'a> { }
+unsafe impl Send for Inner { }
 
 #[derive(Clone)]
-struct Entry<'a> {
-    data: WeakTrait<_Selectable<'a>+'a>,
+struct Entry {
+    data: WeakTrait<_Selectable>,
 }
 
-impl<'a> PartialEq for Entry<'a> {
-    fn eq(&self, other: &Entry<'a>) -> bool {
+impl PartialEq for Entry {
+    fn eq(&self, other: &Entry) -> bool {
         self.data.unique_id() == other.data.unique_id()
     }
 }
 
-impl<'a> Eq for Entry<'a> { }
+impl Eq for Entry { }
 
-impl<'a> PartialOrd for Entry<'a> {
-    fn partial_cmp(&self, other: &Entry<'a>) -> Option<Ordering> {
+impl PartialOrd for Entry {
+    fn partial_cmp(&self, other: &Entry) -> Option<Ordering> {
         self.data.unique_id().partial_cmp(&other.data.unique_id())
     }
 }
 
-impl<'a> Ord for Entry<'a> {
-    fn cmp(&self, other: &Entry<'a>) -> Ordering {
+impl Ord for Entry {
+    fn cmp(&self, other: &Entry) -> Ordering {
         self.data.unique_id().cmp(&other.data.unique_id())
     }
 }
 
-impl<'a> Hash for Entry<'a> {
+impl Hash for Entry {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.data.unique_id().hash(state);
     }
@@ -239,14 +239,14 @@ impl<'a> Hash for Entry<'a> {
 
 /// A structure stored by `Selectable` objects to interact with `Select` objects that want
 /// to be notified when the `Selectable` object becomes ready.
-pub struct WaitQueue<'a> {
-    queue: Vec<Weak<Mutex<Inner<'a>>>>,
+pub struct WaitQueue {
+    queue: Vec<Weak<Mutex<Inner>>>,
     id: usize,
 }
 
-impl<'a> WaitQueue<'a> {
+impl WaitQueue {
     /// Creates a new `WaitQueue`. This function does not allocate.
-    pub fn new() -> WaitQueue<'a> {
+    pub fn new() -> WaitQueue {
         WaitQueue {
             queue: vec!(),
             id: 0,
@@ -262,7 +262,7 @@ impl<'a> WaitQueue<'a> {
 
     /// Add a `Select` object to the `WaitQueue`. Returns the number of `Select` objects
     /// contained in the `WaitQueue` after this call.
-    pub fn add(&mut self, load: Payload<'a>) -> usize {
+    pub fn add(&mut self, load: Payload) -> usize {
         self.queue.push(load.data);
         self.queue.len()
     }
@@ -311,13 +311,13 @@ impl<'a> WaitQueue<'a> {
     }
 }
 
-impl<'a> Drop for WaitQueue<'a> {
+impl Drop for WaitQueue {
     fn drop(&mut self) {
         self.clear();
     }
 }
 
 /// Container passed from the `Select` object to a `WaitQueue`.
-pub struct Payload<'a> {
-    data: Weak<Mutex<Inner<'a>>>,
+pub struct Payload {
+    data: Weak<Mutex<Inner>>,
 }

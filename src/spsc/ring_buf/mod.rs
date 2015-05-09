@@ -10,6 +10,8 @@
 use arc::{Arc, ArcTrait};
 use select::{Selectable, _Selectable};
 use {Error, Sendable};
+use std::ptr;
+use std::raw::TraitObject;
 
 mod imp;
 #[cfg(test)] mod test;
@@ -19,18 +21,18 @@ mod imp;
 /// ### Panic
 ///
 /// Panics if `next_power_of_two(cap) * sizeof(T) >= isize::MAX`.
-pub fn new<'a, T: Sendable+'a>(cap: usize) -> (Producer<'a, T>, Consumer<'a, T>) {
+pub fn new<T: Sendable>(cap: usize) -> (Producer<T>, Consumer<T>) {
     let packet = Arc::new(imp::Packet::new(cap));
     packet.set_id(packet.unique_id());
     (Producer { data: packet.clone() }, Consumer { data: packet })
 }
 
 /// The producing half of an SPSC ring buffer channel.
-pub struct Producer<'a, T: Sendable+'a> {
-    data: Arc<imp::Packet<'a, T>>,
+pub struct Producer<T: Sendable> {
+    data: Arc<imp::Packet<T>>,
 }
 
-impl<'a, T: Sendable+'a> Producer<'a, T> {
+impl<T: Sendable> Producer<T> {
     /// Sends a message over this channel. Returns an older message if the buffer is full.
     ///
     /// ### Error
@@ -41,20 +43,20 @@ impl<'a, T: Sendable+'a> Producer<'a, T> {
     }
 }
 
-impl<'a, T: Sendable+'a> Drop for Producer<'a, T> {
+impl<T: Sendable> Drop for Producer<T> {
     fn drop(&mut self) {
         self.data.disconnect_sender()
     }
 }
 
-unsafe impl<'a, T: Sendable+'a> Send for Producer<'a, T> { }
+unsafe impl<T: Sendable> Send for Producer<T> { }
 
 /// The sending half of an SPSC channel.
-pub struct Consumer<'a, T: Sendable+'a> {
-    data: Arc<imp::Packet<'a, T>>,
+pub struct Consumer<T: Sendable> {
+    data: Arc<imp::Packet<T>>,
 }
 
-impl<'a, T: Sendable+'a> Consumer<'a, T> {
+impl<T: Sendable> Consumer<T> {
     /// Receives a message from the channel. Blocks if the buffer is empty.
     ///
     /// ### Error
@@ -75,20 +77,20 @@ impl<'a, T: Sendable+'a> Consumer<'a, T> {
     }
 }
 
-impl<'a, T: Sendable+'a> Drop for Consumer<'a, T> {
+impl<T: Sendable> Drop for Consumer<T> {
     fn drop(&mut self) {
         self.data.disconnect_receiver()
     }
 }
 
-unsafe impl<'a, T: Sendable+'a> Send for Consumer<'a, T> { }
+unsafe impl<T: Sendable> Send for Consumer<T> { }
 
-impl<'a, T: Sendable+'a> Selectable<'a> for Consumer<'a, T> {
+impl<T: Sendable> Selectable for Consumer<T> {
     fn id(&self) -> usize {
         self.data.unique_id()
     }
 
-    fn as_selectable(&self) -> ArcTrait<_Selectable<'a>+'a> {
-        unsafe { self.data.as_trait(&*self.data as &(_Selectable+'a)) }
+    fn as_selectable(&self) -> ArcTrait<_Selectable> {
+        unsafe { self.data.as_trait(ptr::read(&(&*self.data as &(_Selectable)) as *const _ as *const TraitObject)) }
     }
 }
