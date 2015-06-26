@@ -47,7 +47,7 @@ impl<T: Sendable> Node<T> {
             val: None
         });
         let ptr = &mut *node as *mut _;
-        unsafe { mem::forget(node); }
+        mem::forget(node);
         ptr
     }
 }
