@@ -35,7 +35,7 @@
 use std::sync::atomic::Ordering::{Relaxed, Release, Acquire, SeqCst};
 use std::sync::{atomic};
 use std::{fmt, ptr};
-use std::mem::{self, min_align_of, size_of};
+use std::mem::{self, align_of, size_of};
 use core::nonzero::{NonZero};
 use std::ops::{Deref};
 use std::rt::heap::{deallocate};
@@ -154,7 +154,7 @@ impl<T> Arc<T> {
 
         ArcTrait {
             _size: mem::size_of::<ArcInner<T>>(),
-            _alignment: mem::min_align_of::<ArcInner<T>>(),
+            _alignment: mem::align_of::<ArcInner<T>>(),
             _destructor: ptr_drop::<T>,
             _trait: _trait,
 
@@ -230,7 +230,7 @@ impl<T> Drop for Arc<T> {
         if self.inner().weak.fetch_sub(1, Release) == 1 {
             atomic::fence(Acquire);
             unsafe { deallocate(ptr as *mut u8, size_of::<ArcInner<T>>(),
-                                min_align_of::<ArcInner<T>>()) }
+                                align_of::<ArcInner<T>>()) }
         }
     }
 }
@@ -291,7 +291,7 @@ impl<T> Drop for Weak<T> {
         if self.inner().weak.fetch_sub(1, Release) == 1 {
             atomic::fence(Acquire);
             unsafe { deallocate(ptr as *mut u8, size_of::<ArcInner<T>>(),
-                                min_align_of::<ArcInner<T>>()) }
+                                align_of::<ArcInner<T>>()) }
         }
     }
 }

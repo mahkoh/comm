@@ -4,6 +4,7 @@
            unsafe_no_drop_flag, filling_drop, wait_timeout_with, static_mutex,
            raw, nonzero, drain, num_bits_bytes)]
 #![cfg_attr(test, feature(test, scoped))]
+#![cfg_attr(test, allow(deprecated))]
 #![allow(dead_code, trivial_casts, trivial_numeric_casts,
          drop_with_repr_extern)]
 

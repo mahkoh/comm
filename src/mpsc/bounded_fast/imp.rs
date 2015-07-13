@@ -64,7 +64,7 @@ impl<'a, T: Sendable+'a> Packet<'a, T> {
         buf_size = cmp::max(buf_size, 2);
         let cap = buf_size.checked_next_power_of_two().unwrap_or(!0);
         let size = cap.checked_mul(mem::size_of::<Node<T>>()).unwrap_or(!0);
-        let buf = unsafe { allocate(size, mem::min_align_of::<T>()) };
+        let buf = unsafe { allocate(size, mem::align_of::<T>()) };
         if buf.is_null() {
             oom();
         }
@@ -269,7 +269,7 @@ impl<'a, T: Sendable+'a> Packet<'a, T> {
             v @ Ok(_) => return v,
         }
 
-        let mut rv;
+        let rv;
         let mut guard = self.sleep_mutex.lock().unwrap();
         self.have_sleeping_receiver.store(true, SeqCst);
         loop {
@@ -296,7 +296,7 @@ impl<'a, T: Sendable+'a> Drop for Packet<'a, T> {
         unsafe {
             deallocate(self.buf as *mut u8,
                        (self.cap_mask as usize + 1) * mem::size_of::<Node<T>>(),
-                       mem::min_align_of::<Node<T>>());
+                       mem::align_of::<Node<T>>());
         }
     }
 }
