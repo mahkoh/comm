@@ -49,7 +49,7 @@ impl<'a, T: Sendable+'a> Packet<'a, T> {
         let buf = if mem::size_of::<T>() == 0 {
             1 as *mut u8
         } else {
-            unsafe { allocate(size, mem::min_align_of::<T>()) }
+            unsafe { allocate(size, mem::align_of::<T>()) }
         };
         if buf.is_null() {
             oom();
@@ -219,7 +219,7 @@ impl<'a, T: Sendable+'a> Drop for Packet<'a, T> {
             if mem::size_of::<T>() > 0 {
                 deallocate(self.buf as *mut u8,
                            (self.cap_mask as usize + 1) * mem::size_of::<T>(),
-                           mem::min_align_of::<T>());
+                           mem::align_of::<T>());
             }
         }
     }
