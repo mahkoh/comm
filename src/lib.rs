@@ -1,8 +1,8 @@
 #![crate_type = "lib"]
 #![crate_name = "comm"]
 #![feature(box_syntax, core, alloc, duration, oom, heap_api,
-           unsafe_no_drop_flag, filling_drop, wait_timeout_with, static_mutex,
-           raw, nonzero, drain, num_bits_bytes)]
+           unsafe_no_drop_flag, filling_drop, wait_timeout, wait_timeout_with,
+           static_mutex, raw, nonzero, drain, num_bits_bytes)]
 #![cfg_attr(test, feature(test, scoped))]
 #![cfg_attr(test, allow(deprecated))]
 #![allow(dead_code, trivial_casts, trivial_numeric_casts,
