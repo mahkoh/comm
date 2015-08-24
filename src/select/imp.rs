@@ -125,7 +125,7 @@ impl<'a> Select<'a> {
             inner.unwrap().ready_list.len() > 0
         }).unwrap();
 
-        if !notified {
+        if !notified.timed_out() {
             return None;
         }
 
