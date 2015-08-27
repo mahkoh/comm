@@ -5,24 +5,26 @@
 use arc::{Arc, ArcTrait};
 use select::{Selectable, _Selectable};
 use {Error, Sendable};
+use std::ptr;
+use std::raw::TraitObject;
 
 mod imp;
 #[cfg(test)] mod test;
 #[cfg(test)] mod bench;
 
 /// Creates a new unbounded MPSC channel.
-pub fn new<'a, T: Sendable+'a>() -> (Producer<'a, T>, Consumer<'a, T>) {
+pub fn new<T: Sendable>() -> (Producer<T>, Consumer<T>) {
     let packet = Arc::new(imp::Packet::new());
     packet.set_id(packet.unique_id());
     (Producer { data: packet.clone() }, Consumer { data: packet })
 }
 
 /// The producing end of an unbounded MPSC channel.
-pub struct Producer<'a, T: Sendable+'a> {
-    data: Arc<imp::Packet<'a, T>>,
+pub struct Producer<T: Sendable> {
+    data: Arc<imp::Packet<T>>,
 }
 
-impl<'a, T: Sendable+'a> Producer<'a, T> {
+impl<T: Sendable> Producer<T> {
     /// Appends a message to the channel.
     ///
     /// ### Error
@@ -33,27 +35,27 @@ impl<'a, T: Sendable+'a> Producer<'a, T> {
     }
 }
 
-impl<'a, T: Sendable+'a> Clone for Producer<'a, T> {
-    fn clone(&self) -> Producer<'a, T> {
+impl<T: Sendable> Clone for Producer<T> {
+    fn clone(&self) -> Producer<T> {
         self.data.add_sender();
         Producer { data: self.data.clone() }
     }
 }
 
-impl<'a, T: Sendable+'a> Drop for Producer<'a, T> {
+impl<T: Sendable> Drop for Producer<T> {
     fn drop(&mut self) {
         self.data.remove_sender()
     }
 }
 
-unsafe impl<'a, T: Sendable+'a> Send for Producer<'a, T> { }
+unsafe impl<T: Sendable> Send for Producer<T> { }
 
 /// The consuming end of an unbounded MPSC channel.
-pub struct Consumer<'a, T: Sendable+'a> {
-    data: Arc<imp::Packet<'a, T>>,
+pub struct Consumer<T: Sendable> {
+    data: Arc<imp::Packet<T>>,
 }
 
-impl<'a, T: Sendable+'a> Consumer<'a, T> {
+impl<T: Sendable> Consumer<T> {
     /// Receives a message from this channel. Blocks if the channel is empty.
     ///
     /// ### Error
@@ -74,20 +76,20 @@ impl<'a, T: Sendable+'a> Consumer<'a, T> {
     }
 }
 
-impl<'a, T: Sendable+'a> Drop for Consumer<'a, T> {
+impl<T: Sendable> Drop for Consumer<T> {
     fn drop(&mut self) {
         self.data.remove_receiver()
     }
 }
 
-unsafe impl<'a, T: Sendable+'a> Send for Consumer<'a, T> { }
+unsafe impl<T: Sendable> Send for Consumer<T> { }
 
-impl<'a, T: Sendable+'a> Selectable<'a> for Consumer<'a, T> {
+impl<T: Sendable> Selectable for Consumer<T> {
     fn id(&self) -> usize {
         self.data.unique_id()
     }
 
-    fn as_selectable(&self) -> ArcTrait<_Selectable<'a>+'a> {
-        unsafe { self.data.as_trait(&*self.data as &(_Selectable+'a)) }
+    fn as_selectable(&self) -> ArcTrait<_Selectable> {
+        unsafe { self.data.as_trait(ptr::read(&(&*self.data as &(_Selectable)) as *const _ as *const TraitObject)) }
     }
 }

@@ -7,7 +7,7 @@ use std::cell::{Cell};
 use select::{_Selectable, WaitQueue, Payload};
 use {Error, Sendable};
 
-pub struct Packet<'a, T: Sendable+'a> {
+pub struct Packet<T: Sendable> {
     // The id of this channel. The address of the `arc::Inner` that contains this channel.
     id: Cell<usize>,
 
@@ -15,9 +15,9 @@ pub struct Packet<'a, T: Sendable+'a> {
     // be an atomic pointer because it's accessed from the threads that select on this
     // channel and written to by the thread that's receiving which don't have to be the
     // same threads.
-    read_end: AtomicPtr<Node<'a, T>>,
+    read_end: AtomicPtr<Node<T>>,
     // The address of the Node we'll read the next message to.
-    write_end: Cell<*mut Node<'a, T>>,
+    write_end: Cell<*mut Node<T>>,
 
     // Has the sender disconnected?
     sender_disconnected: AtomicBool,
@@ -33,17 +33,17 @@ pub struct Packet<'a, T: Sendable+'a> {
 
     // Is someone selecting on this channel?
     wait_queue_used: AtomicBool,
-    wait_queue: Mutex<WaitQueue<'a>>,
+    wait_queue: Mutex<WaitQueue>,
 }
 
-struct Node<'a, T: Sendable+'a> {
-    next: AtomicPtr<Node<'a, T>>,
+struct Node<T: Sendable> {
+    next: AtomicPtr<Node<T>>,
     val: Option<T>,
 }
 
-impl<'a, T: Sendable+'a> Node<'a, T> {
+impl<T: Sendable> Node<T> {
     // Creates and forgets a new empty Node.
-    fn new() -> *mut Node<'a, T> {
+    fn new() -> *mut Node<T> {
         let mut node: Box<Node<T>> = Box::new(Node {
             next: AtomicPtr::new(ptr::null_mut()),
             val: None
@@ -54,8 +54,8 @@ impl<'a, T: Sendable+'a> Node<'a, T> {
     }
 }
 
-impl<'a, T: Sendable+'a> Packet<'a, T> {
-    pub fn new() -> Packet<'a, T> {
+impl<T: Sendable> Packet<T> {
+    pub fn new() -> Packet<T> {
         let ptr = Node::new();
         Packet {
             id: Cell::new(0),
@@ -181,17 +181,17 @@ impl<'a, T: Sendable+'a> Packet<'a, T> {
     }
 }
 
-unsafe impl<'a, T: Sendable+'a> Send for Packet<'a, T> { }
-unsafe impl<'a, T: Sendable+'a> Sync for Packet<'a, T> { }
+unsafe impl<T: Sendable> Send for Packet<T> { }
+unsafe impl<T: Sendable> Sync for Packet<T> { }
 
-impl<'a, T: Sendable+'a> Drop for Packet<'a, T> {
+impl<T: Sendable> Drop for Packet<T> {
     fn drop(&mut self) {
         while self.recv_async().is_ok() { }
         unsafe { ptr::read(self.read_end.load(SeqCst)); }
     }
 }
 
-unsafe impl<'a, T: Sendable+'a> _Selectable<'a> for Packet<'a, T> {
+unsafe impl<T: Sendable> _Selectable for Packet<T> {
     fn ready(&self) -> bool {
         if self.sender_disconnected.load(SeqCst) {
             return true;
@@ -200,7 +200,7 @@ unsafe impl<'a, T: Sendable+'a> _Selectable<'a> for Packet<'a, T> {
         !read_end.next.load(SeqCst).is_null()
     }
 
-    fn register(&self, load: Payload<'a>) {
+    fn register(&self, load: Payload) {
         let mut wait_queue = self.wait_queue.lock().unwrap();
         if wait_queue.add(load) > 0 {
             self.wait_queue_used.store(true, SeqCst);

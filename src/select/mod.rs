@@ -37,7 +37,7 @@
 //! `wait` will return an increasing number of unique ids that should be compared to the
 //! return values of the `id` functions of `Selectable` objects. Therefore, all ready
 //! targets can be found in `O(number_of_targets)` or
-//! `number_of_ready_targets*O(log(number_of_targets))`. 
+//! `number_of_ready_targets*O(log(number_of_targets))`.
 //!
 //! ### Implementation
 //!
@@ -73,11 +73,11 @@ mod imp;
 // Traits are here because https://github.com/rust-lang/rust/issues/16264
 
 /// An object that can be selected on.
-pub trait Selectable<'a> {
+pub trait Selectable {
     /// Returns the id stored by `Select::wait` when this object is ready.
     fn id(&self) -> usize;
     /// Returns the interior object that will be stored in the `Select` object.
-    fn as_selectable(&self) -> ArcTrait<_Selectable<'a>+'a>;
+    fn as_selectable(&self) -> ArcTrait<_Selectable>;
 }
 
 /// The object that will be stored in a `Select` structure while the `Selectable` object
@@ -85,7 +85,7 @@ pub trait Selectable<'a> {
 ///
 /// Implementing this trait is unsafe because the behavior is undefined if the
 /// implementation doesn't follow the rules below.
-pub unsafe trait _Selectable<'a>: Sync+Sendable {
+pub unsafe trait _Selectable: Sync+Sendable {
     /// Returns `true` if the object is ready, `false` otherwise.
     ///
     /// This function must not try to acquire any locks that are also held while the
@@ -93,7 +93,7 @@ pub unsafe trait _Selectable<'a>: Sync+Sendable {
     fn ready(&self) -> bool;
     /// Registers a `Select` object with the `Selectable` object. The payload must be
     /// passed to the `WaitQueue`.
-    fn register(&self, Payload<'a>);
+    fn register(&self, Payload);
     /// Unregisters a `Select` objects from the `Selectable` object. The id must be passed
     /// to the `WaitQueue`.
     fn unregister(&self, id: usize);

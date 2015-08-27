@@ -23,7 +23,7 @@ const WAIT_QUEUE_USED:       usize = 0b100000;
 
 const RECEIVER_FLAGS: usize = RECEIVER_WORKING|RECEIVER_SLEEPING|RECEIVER_DISCONNECTED;
 
-pub struct Packet<'a, T: Sendable+'a> {
+pub struct Packet<T: Sendable> {
     // Id of this channel. Address of the arc::Inner that contains this channel.
     id:               Cell<usize>,
     // A collection of flags, see above.
@@ -34,12 +34,12 @@ pub struct Packet<'a, T: Sendable+'a> {
     data:             UnsafeCell<Option<T>>,
     // Mutex to synchronize wait_queue access.
     wait_queue_mutex: StaticMutex,
-    wait_queue:       UnsafeCell<WaitQueue<'a>>,
+    wait_queue:       UnsafeCell<WaitQueue>,
 }
 
-impl<'a, T: Sendable+'a> Packet<'a, T> {
+impl<T: Sendable> Packet<T> {
     /// Create a new Packet
-    pub fn new() -> Packet<'a, T> {
+    pub fn new() -> Packet<T> {
         Packet {
             id:               Cell::new(0),
             flags:            AtomicUsize::new(NONE),
@@ -213,7 +213,7 @@ impl<'a, T: Sendable+'a> Packet<'a, T> {
     }
 
     /// Get the wait queue.
-    pub fn wait_queue<F, U>(&self, f: F) -> U where F: FnOnce(&mut WaitQueue<'a>) -> U {
+    pub fn wait_queue<F, U>(&self, f: F) -> U where F: FnOnce(&mut WaitQueue) -> U {
         unsafe {
             let mutex: &'static StaticMutex = mem::transmute(&self.wait_queue_mutex);
             let _guard = mutex.lock().unwrap();
@@ -222,15 +222,15 @@ impl<'a, T: Sendable+'a> Packet<'a, T> {
     }
 }
 
-unsafe impl<'a, T: Sendable+'a> Sync for Packet<'a, T> { }
-unsafe impl<'a, T: Sendable+'a> Send for Packet<'a, T> { }
+unsafe impl<T: Sendable> Sync for Packet<T> { }
+unsafe impl<T: Sendable> Send for Packet<T> { }
 
-unsafe impl<'a, T: Sendable+'a> _Selectable<'a> for Packet<'a, T> {
+unsafe impl<T: Sendable> _Selectable for Packet<T> {
     fn ready(&self) -> bool {
         self.flags.load(Ordering::SeqCst) & (DATA_AVAILABLE | SENDER_DISCONNECTED) != 0
     }
 
-    fn register(&self, load: Payload<'a>) {
+    fn register(&self, load: Payload) {
         if self.wait_queue(|q| q.add(load)) > 0 {
             self.flags.fetch_or(WAIT_QUEUE_USED, Ordering::SeqCst);
         }
@@ -243,7 +243,7 @@ unsafe impl<'a, T: Sendable+'a> _Selectable<'a> for Packet<'a, T> {
     }
 }
 
-impl<'a, T: Sendable+'a> Drop for Packet<'a, T> {
+impl<T: Sendable> Drop for Packet<T> {
     fn drop(&mut self) {
         unsafe {
             let mutex: &'static StaticMutex = mem::transmute(&self.wait_queue_mutex);

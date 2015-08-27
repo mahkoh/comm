@@ -30,7 +30,7 @@ fn compose_pointer(lower: HalfPointer, higher: HalfPointer) -> usize {
     (lower as usize) | ((higher as usize) << HALF_POINTER_BITS)
 }
 
-pub struct Packet<'a, T: Sendable+'a> {
+pub struct Packet<T: Sendable> {
     // The id of this channel. The address of the `arc::Inner` that contains this channel.
     id: Cell<usize>,
 
@@ -72,11 +72,11 @@ pub struct Packet<'a, T: Sendable+'a> {
 
     // Is any one selecting on this channel?
     wait_queue_used: AtomicBool,
-    wait_queue: Mutex<WaitQueue<'a>>,
+    wait_queue: Mutex<WaitQueue>,
 }
 
-impl<'a, T: Sendable+'a> Packet<'a, T> {
-    pub fn new(buf_size: usize) -> Packet<'a, T> {
+impl<T: Sendable> Packet<T> {
+    pub fn new(buf_size: usize) -> Packet<T> {
         if buf_size > 1 << (HALF_POINTER_BITS - 1) {
             panic!("capacity overflow");
         }
@@ -360,10 +360,10 @@ impl<'a, T: Sendable+'a> Packet<'a, T> {
     }
 }
 
-unsafe impl<'a, T: Sendable+'a> Send for Packet<'a, T> { }
-unsafe impl<'a, T: Sendable+'a> Sync for Packet<'a, T> { }
+unsafe impl<T: Sendable> Send for Packet<T> { }
+unsafe impl<T: Sendable> Sync for Packet<T> { }
 
-impl<'a, T: Sendable+'a> Drop for Packet<'a, T> {
+impl<T: Sendable> Drop for Packet<T> {
     fn drop(&mut self) {
         let wenr = self.write_end_next_read.load(SeqCst);
         let (write_end, read_start) = decompose_pointer(wenr);
@@ -382,7 +382,7 @@ impl<'a, T: Sendable+'a> Drop for Packet<'a, T> {
     }
 }
 
-unsafe impl<'a, T: Sendable+'a> _Selectable<'a> for Packet<'a, T> {
+unsafe impl<T: Sendable> _Selectable for Packet<T> {
     fn ready(&self) -> bool {
         if self.peers_awake.load(SeqCst) == 0 {
             return true;
@@ -392,7 +392,7 @@ unsafe impl<'a, T: Sendable+'a> _Selectable<'a> for Packet<'a, T> {
         write_end != next_read
     }
 
-    fn register(&self, load: Payload<'a>) {
+    fn register(&self, load: Payload) {
         let mut wait_queue = self.wait_queue.lock().unwrap();
         if wait_queue.add(load) > 0 {
             self.wait_queue_used.store(true, SeqCst);

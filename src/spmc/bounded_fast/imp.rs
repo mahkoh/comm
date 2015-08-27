@@ -25,7 +25,7 @@ struct Node<T: Sendable> {
 }
 
 #[repr(C)]
-pub struct Packet<'a, T: Sendable+'a> {
+pub struct Packet<T: Sendable> {
     // The id of this channel. The address of the `arc::Inner` that contains this channel.
     id: Cell<usize>,
 
@@ -56,11 +56,11 @@ pub struct Packet<'a, T: Sendable+'a> {
 
     // Is any one selecting on this channel?
     wait_queue_used: AtomicBool,
-    wait_queue: Mutex<WaitQueue<'a>>,
+    wait_queue: Mutex<WaitQueue>,
 }
 
-impl<'a, T: Sendable+'a> Packet<'a, T> {
-    pub fn new(mut buf_size: usize) -> Packet<'a, T> {
+impl<T: Sendable> Packet<T> {
+    pub fn new(mut buf_size: usize) -> Packet<T> {
         buf_size = cmp::max(buf_size, 2);
         let cap = buf_size.checked_next_power_of_two().unwrap_or(!0);
         let size = cap.checked_mul(mem::size_of::<Node<T>>()).unwrap_or(!0);
@@ -286,10 +286,10 @@ impl<'a, T: Sendable+'a> Packet<'a, T> {
     }
 }
 
-unsafe impl<'a, T: Sendable+'a> Send for Packet<'a, T> { }
-unsafe impl<'a, T: Sendable+'a> Sync for Packet<'a, T> { }
+unsafe impl<T: Sendable> Send for Packet<T> { }
+unsafe impl<T: Sendable> Sync for Packet<T> { }
 
-impl<'a, T: Sendable+'a> Drop for Packet<'a, T> {
+impl<T: Sendable> Drop for Packet<T> {
     fn drop(&mut self) {
         while self.recv_async(false).is_ok() { }
 
@@ -301,7 +301,7 @@ impl<'a, T: Sendable+'a> Drop for Packet<'a, T> {
     }
 }
 
-unsafe impl<'a, T: Sendable+'a> _Selectable<'a> for Packet<'a, T> {
+unsafe impl<T: Sendable> _Selectable for Packet<T> {
     fn ready(&self) -> bool {
         if self.sender_disconnected.load(SeqCst) {
             return true;
@@ -311,7 +311,7 @@ unsafe impl<'a, T: Sendable+'a> _Selectable<'a> for Packet<'a, T> {
         node.pos.load(SeqCst) as isize - 1 - next_read as isize >= 0
     }
 
-    fn register(&self, load: Payload<'a>) {
+    fn register(&self, load: Payload) {
         let mut wait_queue = self.wait_queue.lock().unwrap();
         if wait_queue.add(load) > 0 {
             self.wait_queue_used.store(true, SeqCst);

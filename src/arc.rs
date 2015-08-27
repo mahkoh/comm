@@ -8,7 +8,11 @@
 //! ### Example
 //!
 //! ```
+//! #![feature(core)]
+//!
 //! use comm::arc::{Arc, ArcTrait};
+//! use std::ptr;
+//! use std::raw::TraitObject;
 //!
 //! struct X {
 //!     x: u8
@@ -26,7 +30,7 @@
 //!
 //! let arc_trait: ArcTrait<Y> = unsafe {
 //!     let arc = Arc::new(X { x: 3 });
-//!     arc.as_trait(&*arc as &(Y+'static))
+//!     arc.as_trait(ptr::read(&(&*arc as &(Y+'static)) as *const _ as *const TraitObject))
 //! };
 //!
 //! assert_eq!(arc_trait.f(), 3);
@@ -39,7 +43,7 @@ use std::mem::{self, align_of, size_of};
 use core::nonzero::{NonZero};
 use std::ops::{Deref};
 use std::rt::heap::{deallocate};
-use std::raw::{TraitObject};
+use std::raw::TraitObject;
 use std::marker::{PhantomData};
 
 use {Sendable};
@@ -144,11 +148,9 @@ impl<T> Arc<T> {
 
     /// Creates an ArcTrait from an Arc. `t` must be a trait object created by calling
     /// `&*self as &Trait`. Otherwise the behavior is undefined.
-    pub unsafe fn as_trait<Trait: ?Sized>(&self, t: &Trait) -> ArcTrait<Trait> {
+    pub unsafe fn as_trait<Trait: ?Sized>(&self, t: TraitObject) -> ArcTrait<Trait> {
         assert!(mem::size_of::<&Trait>() == mem::size_of::<TraitObject>());
-
-        let _trait = ptr::read(&t as *const _ as *const TraitObject);
-        assert!(_trait.data as usize == &self.inner().data as *const _ as usize);
+        assert!(t.data as usize == &self.inner().data as *const _ as usize);
 
         self.inner().strong.fetch_add(1, Relaxed);
 
@@ -156,7 +158,7 @@ impl<T> Arc<T> {
             _size: mem::size_of::<ArcInner<T>>(),
             _alignment: mem::align_of::<ArcInner<T>>(),
             _destructor: ptr_drop::<T>,
-            _trait: _trait,
+            _trait: t,
 
             _ptr: mem::transmute(self._ptr),
 
@@ -477,6 +479,8 @@ impl<Trait: ?Sized> Drop for WeakTrait<Trait> {
 #[cfg(test)]
 mod test {
     use super::{Arc, ArcTrait};
+    use std::ptr;
+    use std::raw::TraitObject;
 
     struct X {
         x: u8
@@ -496,7 +500,7 @@ mod test {
     fn test1() {
         let arc_trait: ArcTrait<Y> = unsafe {
             let arc = Arc::new(X { x: 3 });
-            arc.as_trait(&*arc as &(Y+'static))
+            arc.as_trait(ptr::read(&(&*arc as &(Y+'static)) as *const _ as *const TraitObject))
         };
 
         assert_eq!(arc_trait.f(), 3);
@@ -506,7 +510,7 @@ mod test {
     fn test2() {
         let arc_trait: ArcTrait<Y> = unsafe {
             let arc = Arc::new(X { x: 3 });
-            arc.as_trait(&*arc as &(Y+'static))
+            arc.as_trait(ptr::read(&(&*arc as &(Y+'static)) as *const _ as *const TraitObject))
         };
         let weak = arc_trait.downgrade();
         let strong = weak.upgrade().unwrap();
@@ -518,7 +522,7 @@ mod test {
     fn test3() {
         let arc_trait: ArcTrait<Y> = unsafe {
             let arc = Arc::new(X { x: 3 });
-            arc.as_trait(&*arc as &(Y+'static))
+            arc.as_trait(ptr::read(&(&*arc as &(Y+'static)) as *const _ as *const TraitObject))
         };
         let weak = arc_trait.downgrade();
         drop(arc_trait);
