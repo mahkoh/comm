@@ -6,7 +6,7 @@ use std::{ptr, mem};
 use std::sync::atomic::{AtomicUsize, AtomicBool};
 use std::sync::atomic::Ordering::{SeqCst};
 use std::sync::{Mutex, Condvar};
-use std::rt::heap::{allocate, deallocate};
+use alloc::heap::{allocate, deallocate};
 use std::cell::{Cell};
 
 use select::{_Selectable, WaitQueue, Payload};

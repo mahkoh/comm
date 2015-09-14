@@ -38,7 +38,7 @@ use std::{fmt, ptr};
 use std::mem::{self, align_of, size_of};
 use core::nonzero::{NonZero};
 use std::ops::{Deref};
-use std::rt::heap::{deallocate};
+use alloc::heap::{deallocate};
 use std::raw::{TraitObject};
 use std::marker::{PhantomData};
 
