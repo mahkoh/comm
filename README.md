@@ -8,7 +8,7 @@ features provided by this crate.
 
 ### Comparison with the `std::sync` implementation
 
-    | `std::sync` | `comm`
+_   | `std::sync` | `comm`
 ----| :----: | :----:
 Restricted by stability guarantees | ✔<sup>1</sup> | ✘
 Users can use their own channels with `Select` | ✘ | ✔
